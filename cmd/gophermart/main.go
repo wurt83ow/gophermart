@@ -1,7 +1,9 @@
 package main
 
-import "fmt"
+import "github.com/wurt83ow/gophermart/internal/app"
 
 func main() {
-	fmt.Println("gophermart")
+	if err := app.Run(); err != nil {
+		panic(err)
+	}
 }
