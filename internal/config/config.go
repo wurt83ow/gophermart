@@ -59,3 +59,12 @@ func regStringVar(p *string, name string, value string, usage string) {
 func getStringFlag(name string) string {
 	return flag.Lookup(name).Value.(flag.Getter).Get().(string)
 }
+
+// GetAsString reads an environment or returns a default value
+func GetAsString(key string, defaultValue string) string {
+	if value, exists := os.LookupEnv(key); exists {
+		return value
+	}
+
+	return defaultValue
+}

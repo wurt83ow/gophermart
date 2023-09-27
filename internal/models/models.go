@@ -1,5 +1,7 @@
 package models
 
+type Key string
+
 type DataОrder struct {
 	UUID        string `db:"correlation_id" json:"result"`
 	Code        string `db:"code" json:"code"`
@@ -17,4 +19,14 @@ type DataUser struct {
 type DeleteOrder struct {
 	UserID  string   `db:"user_id" json:"user_id"`
 	OrderID []string `db:"order_id" json:"order_id"`
+}
+
+type RequestUser struct {
+	Email    string `json:"email"`
+	Name     string `json:"name"`
+	Password string `json:"password"`
+}
+
+type ResponseUser struct {
+	Response string `json:"response,omitempty"`
 }

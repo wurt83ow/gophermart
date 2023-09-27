@@ -1,18 +1,23 @@
 package bdkeeper
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/google/uuid"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/wurt83ow/gophermart/internal/models"
+	"github.com/wurt83ow/gophermart/internal/storage"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-
-	"github.com/wurt83ow/gophermart/internal/models"
 )
 
 type Log interface {
@@ -31,7 +36,6 @@ func NewBDKeeper(dsn func() string, log Log) *BDKeeper {
 		return nil
 	}
 
-	fmt.Println("77777777777777", dsn())
 	conn, err := sql.Open("pgx", dsn())
 	if err != nil {
 
@@ -109,9 +113,65 @@ func (*BDKeeper) SaveOrders(string, models.DataОrder) (models.DataОrder, error
 	panic("unimplemented")
 }
 
-// SaveUser implements storage.Keeper.
-func (*BDKeeper) SaveUser(string, models.DataUser) (models.DataUser, error) {
-	panic("unimplemented")
+func (bdk *BDKeeper) SaveUser(key string, data models.DataUser) (models.DataUser, error) {
+	ctx := context.Background()
+
+	var id string
+	if data.UUID == "" {
+		neuuid := uuid.New()
+		id = neuuid.String()
+	} else {
+		id = data.UUID
+	}
+
+	_, err := bdk.conn.ExecContext(ctx,
+		`INSERT INTO users (
+			id,
+			email,
+			hash,
+			name)
+		VALUES ($1, $2, $3, $4) RETURNING id`,
+		id, data.Email, data.Hash, data.Name)
+
+	var (
+		cond string
+		hash []byte
+	)
+
+	if data.Hash != nil {
+		cond = "AND u.hash = $2"
+		hash = data.Hash
+	}
+
+	stmt := fmt.Sprintf(`
+	SELECT
+		u.id,
+		u.email,
+		u.hash,
+		u.name  	 
+	FROM users u	 
+	WHERE
+		u.email = $1 %s`, cond)
+	row := bdk.conn.QueryRowContext(ctx, stmt, data.Email, hash)
+
+	// read the values from the database record into the corresponding fields of the structure
+	var m models.DataUser
+	nerr := row.Scan(&m.UUID, &m.Email, &m.Hash, &m.Name)
+	if nerr != nil {
+		return data, nerr
+	}
+
+	if err != nil {
+		var e *pgconn.PgError
+		if errors.As(err, &e) && e.Code == pgerrcode.UniqueViolation {
+			bdk.log.Info("unique field violation on column: ", zap.Error(err))
+
+			return m, storage.ErrConflict
+		}
+		return m, err
+	}
+
+	return m, nil
 }
 
 // UpdateBatch implements storage.Keeper.

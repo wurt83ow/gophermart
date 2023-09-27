@@ -2,6 +2,7 @@ package storage
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/wurt83ow/gophermart/internal/models"
@@ -61,4 +62,61 @@ func NewMemoryStorage(keeper Keeper, log Log) *MemoryStorage {
 		keeper: keeper,
 		log:    log,
 	}
+}
+
+// GetBaseConnection implements controllers.Storage.
+func (*MemoryStorage) GetBaseConnection() bool {
+	panic("unimplemented")
+}
+
+// GetOrder implements controllers.Storage.
+func (*MemoryStorage) GetOrder(k string) (models.DataОrder, error) {
+	panic("unimplemented")
+}
+
+func (s *MemoryStorage) GetUser(k string) (models.DataUser, error) {
+	s.umx.RLock()
+	defer s.umx.RUnlock()
+
+	v, exists := s.users[k]
+	if !exists {
+		return models.DataUser{}, errors.New("value with such key doesn't exist")
+	}
+
+	return v, nil
+}
+
+// InsertOrder implements controllers.Storage.
+func (*MemoryStorage) InsertOrder(k string, v models.DataОrder) (models.DataОrder, error) {
+	panic("unimplemented")
+}
+
+func (s *MemoryStorage) InsertUser(k string,
+	v models.DataUser) (models.DataUser, error) {
+
+	fmt.Println("8888888888888888888888888888")
+	nv, err := s.SaveUser(k, v)
+	if err != nil {
+		return nv, err
+	}
+
+	s.umx.Lock()
+	defer s.umx.Unlock()
+
+	s.users[k] = nv
+
+	return nv, nil
+}
+
+// SaveOrder implements controllers.Storage.
+func (*MemoryStorage) SaveOrder(k string, v models.DataОrder) (models.DataОrder, error) {
+	panic("unimplemented")
+}
+
+func (s *MemoryStorage) SaveUser(k string, v models.DataUser) (models.DataUser, error) {
+	if s.keeper == nil {
+		return v, nil
+	}
+
+	return s.keeper.SaveUser(k, v)
 }
