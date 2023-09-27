@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -12,6 +11,8 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/wurt83ow/gophermart/internal/models"
 )
 
 type Log interface {
@@ -30,8 +31,10 @@ func NewBDKeeper(dsn func() string, log Log) *BDKeeper {
 		return nil
 	}
 
+	fmt.Println("77777777777777", dsn())
 	conn, err := sql.Open("pgx", dsn())
 	if err != nil {
+
 		log.Info("Unable to connection to database: ", zap.Error(err))
 		return nil
 	}
@@ -48,8 +51,9 @@ func NewBDKeeper(dsn func() string, log Log) *BDKeeper {
 	}
 
 	// fix error test path
+	mp := dir + "/migrations"
 	var path string
-	if filepath.Base(dir) == "shortener" {
+	if _, err := os.Stat(mp); err != nil {
 		path = "../../"
 	}
 
@@ -73,4 +77,44 @@ func NewBDKeeper(dsn func() string, log Log) *BDKeeper {
 		conn: conn,
 		log:  log,
 	}
+}
+
+// Close implements storage.Keeper.
+func (*BDKeeper) Close() bool {
+	panic("unimplemented")
+}
+
+// LoadOrders implements storage.Keeper.
+func (*BDKeeper) LoadOrders() (map[string]models.DataОrder, error) {
+	panic("unimplemented")
+}
+
+// LoadUsers implements storage.Keeper.
+func (*BDKeeper) LoadUsers() (map[string]models.DataUser, error) {
+	panic("unimplemented")
+}
+
+// Ping implements storage.Keeper.
+func (*BDKeeper) Ping() bool {
+	panic("unimplemented")
+}
+
+// SaveBatch implements storage.Keeper.
+func (*BDKeeper) SaveBatch(map[string]models.DataОrder) error {
+	panic("unimplemented")
+}
+
+// SaveOrders implements storage.Keeper.
+func (*BDKeeper) SaveOrders(string, models.DataОrder) (models.DataОrder, error) {
+	panic("unimplemented")
+}
+
+// SaveUser implements storage.Keeper.
+func (*BDKeeper) SaveUser(string, models.DataUser) (models.DataUser, error) {
+	panic("unimplemented")
+}
+
+// UpdateBatch implements storage.Keeper.
+func (*BDKeeper) UpdateBatch(...models.DeleteOrder) error {
+	panic("unimplemented")
 }
