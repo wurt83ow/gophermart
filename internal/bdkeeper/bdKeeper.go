@@ -173,8 +173,3 @@ func (bdk *BDKeeper) SaveUser(key string, data models.DataUser) (models.DataUser
 
 	return m, nil
 }
-
-// UpdateBatch implements storage.Keeper.
-func (*BDKeeper) UpdateBatch(...models.DeleteOrder) error {
-	panic("unimplemented")
-}

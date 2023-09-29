@@ -1,24 +1,22 @@
 package models
 
+import "time"
+
 type Key string
 
 type DataОrder struct {
-	UUID        string `db:"correlation_id" json:"result"`
-	Code        string `db:"code" json:"code"`
-	UserID      string `db:"user_id" json:"user_id"`
-	DeletedFlag bool   `db:"is_deleted" json:"is_deleted"`
+	UUID   string    `db:"id" json:"id"`
+	Number string    `db:"number" json:"number"`
+	Date   time.Time `db:"date" json:"date"`
+	Status string    `db:"status" json:"status"`
+	UserID string    `db:"user_id" json:"user_id"`
 }
 
 type DataUser struct {
-	UUID  string `db:"id" json:"user_id"`
-	Name  string `db:"name"`
-	Email string `db:"email"`
-	Hash  []byte `db:"hash"`
-}
-
-type DeleteOrder struct {
-	UserID  string   `db:"user_id" json:"user_id"`
-	OrderID []string `db:"order_id" json:"order_id"`
+	UUID  string `db:"id" json:"id"`
+	Name  string `db:"name" json:"name"`
+	Email string `db:"name" json:"email"`
+	Hash  []byte `db:"name" json:"hash"`
 }
 
 type RequestUser struct {

@@ -3,7 +3,9 @@ package controllers
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi"
 	"github.com/google/uuid"
@@ -13,6 +15,8 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
+
+var keyUserID models.Key = "userID"
 
 type Storage interface {
 	InsertOrder(k string, v models.DataОrder) (models.DataОrder, error)
@@ -60,15 +64,15 @@ func NewBaseController(storage Storage, options Options, log Log, authz Authz) *
 
 func (h *BaseController) Route() *chi.Mux {
 	r := chi.NewRouter()
-	r.Post("/register", h.Register)
-	r.Post("/login", h.Login)
+	r.Post("/api/user/register", h.Register)
+	r.Post("/api/user/login", h.Login)
 	r.Get("/ping", h.getPing)
 
 	// group where the middleware authorization is needed
 	r.Group(func(r chi.Router) {
 		r.Use(h.authz.JWTAuthzMiddleware(h.storage, h.log))
 
-		// r.Post("/", h.shortenURL)
+		r.Post("/api/user/orders", h.createOrder)
 		// r.Get("/api/user/urls", h.getUserURLs)
 
 	})
@@ -164,4 +168,39 @@ func (h *BaseController) getPing(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK) // 200
 	h.log.Info("sending HTTP 200 response")
+}
+
+// POST
+func (h *BaseController) createOrder(w http.ResponseWriter, r *http.Request) {
+	// set the correct header for the data type
+	body, err := io.ReadAll(r.Body)
+	if err != nil || len(body) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		h.log.Info("got bad request status 400: %v", zap.String("method", r.Method))
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain")
+
+	orderNum := string(body)
+
+	// Здесь проверка на luna
+	//!!!
+
+	userID, _ := r.Context().Value(keyUserID).(string)
+	curDate := time.Now()
+	status := "NEW"
+	// save full url to storage with the key received earlier
+	_, err = h.storage.InsertOrder(orderNum, models.DataОrder{Number: orderNum, Date: curDate, Status: status, UserID: userID})
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	// respond to client
+	w.Header().Set("Content-Type", "text/plain")
+
+	w.WriteHeader(http.StatusCreated) //code 201
+
+	h.log.Info("sending HTTP 201 response")
 }

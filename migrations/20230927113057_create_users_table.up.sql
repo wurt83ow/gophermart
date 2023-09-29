@@ -4,4 +4,4 @@ CREATE TABLE IF NOT EXISTS users (
 	hash bytea,
 	name TEXT 	 
 	);
-CREATE UNIQUE INDEX IF NOT EXISTS uniq_user ON users (email);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_users ON users (email);

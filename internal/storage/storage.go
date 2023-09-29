@@ -20,7 +20,6 @@ type Log interface {
 }
 
 type MemoryStorage struct {
-	dmx    sync.RWMutex
 	umx    sync.RWMutex
 	orders StorageOrders
 	users  StorageUsers
@@ -34,7 +33,7 @@ type Keeper interface {
 	SaveOrders(string, models.DataОrder) (models.DataОrder, error)
 	SaveUser(string, models.DataUser) (models.DataUser, error)
 	SaveBatch(StorageOrders) error
-	UpdateBatch(...models.DeleteOrder) error
+
 	Ping() bool
 	Close() bool
 }
