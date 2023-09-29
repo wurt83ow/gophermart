@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi"
+	authz "github.com/wurt83ow/gophermart/internal/authorization"
 	"github.com/wurt83ow/gophermart/internal/bdkeeper"
 	"github.com/wurt83ow/gophermart/internal/config"
 	"github.com/wurt83ow/gophermart/internal/controllers"
@@ -30,7 +31,8 @@ func Run() error {
 
 	memoryStorage := storage.NewMemoryStorage(keeper, nLogger)
 
-	controller := controllers.NewBaseController(memoryStorage, option, nLogger)
+	authz := authz.NewJWTAuthz(option.JWTSigningKey(), nLogger)
+	controller := controllers.NewBaseController(memoryStorage, option, nLogger, authz)
 	reqLog := middleware.NewReqLog(nLogger)
 
 	r := chi.NewRouter()

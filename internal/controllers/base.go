@@ -3,13 +3,11 @@ package controllers
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi"
 	"github.com/google/uuid"
 	authz "github.com/wurt83ow/gophermart/internal/authorization"
-	"github.com/wurt83ow/gophermart/internal/middleware"
 	"github.com/wurt83ow/gophermart/internal/models"
 	"github.com/wurt83ow/gophermart/internal/storage"
 	"go.uber.org/zap"
@@ -35,17 +33,26 @@ type Log interface {
 	Info(string, ...zapcore.Field)
 }
 
+type Authz interface {
+	JWTAuthzMiddleware(authz.Storage, authz.Log) func(http.Handler) http.Handler
+	GetHash(email string, password string) []byte
+	CreateJWTTokenForUser(userid string) string
+	AuthCookie(name string, token string) *http.Cookie
+}
+
 type BaseController struct {
 	storage Storage
 	options Options
 	log     Log
+	authz   Authz
 }
 
-func NewBaseController(storage Storage, options Options, log Log) *BaseController {
+func NewBaseController(storage Storage, options Options, log Log, authz Authz) *BaseController {
 	instance := &BaseController{
 		storage: storage,
 		options: options,
 		log:     log,
+		authz:   authz,
 	}
 
 	return instance
@@ -59,7 +66,7 @@ func (h *BaseController) Route() *chi.Mux {
 
 	// group where the middleware authorization is needed
 	r.Group(func(r chi.Router) {
-		r.Use(middleware.JWTAuthzMiddleware(h.storage, h.log))
+		r.Use(h.authz.JWTAuthzMiddleware(h.storage, h.log))
 
 		// r.Post("/", h.shortenURL)
 		// r.Get("/api/user/urls", h.getUserURLs)
@@ -78,7 +85,7 @@ func (h *BaseController) Register(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	fmt.Println("99999999999999999999999")
+
 	_, err := h.storage.GetUser(regReq.Email)
 	if err == nil {
 		h.log.Info("the user is already registered: ", zap.Error(err))
@@ -86,7 +93,7 @@ func (h *BaseController) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	Hash := authz.GetHash(regReq.Email, regReq.Password)
+	Hash := h.authz.GetHash(regReq.Email, regReq.Password)
 
 	// save the user to the storage
 	dataUser := models.DataUser{UUID: uuid.New().String(), Email: regReq.Email, Hash: Hash, Name: regReq.Name}
@@ -119,10 +126,10 @@ func (h *BaseController) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if bytes.Equal(user.Hash, authz.GetHash(rb.Email, rb.Password)) {
-		freshToken := authz.CreateJWTTokenForUser(user.UUID)
-		http.SetCookie(w, authz.AuthCookie("jwt-token", freshToken))
-		http.SetCookie(w, authz.AuthCookie("Authorization", freshToken))
+	if bytes.Equal(user.Hash, h.authz.GetHash(rb.Email, rb.Password)) {
+		freshToken := h.authz.CreateJWTTokenForUser(user.UUID)
+		http.SetCookie(w, h.authz.AuthCookie("jwt-token", freshToken))
+		http.SetCookie(w, h.authz.AuthCookie("Authorization", freshToken))
 
 		w.Header().Set("Authorization", freshToken)
 		err := json.NewEncoder(w).Encode(models.ResponseUser{
