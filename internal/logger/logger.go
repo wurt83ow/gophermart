@@ -2,6 +2,7 @@ package logger
 
 import (
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 type Logger struct {
@@ -35,6 +36,10 @@ func (l Logger) Debug(msg string, fields ...zap.Field) {
 
 func (l Logger) Info(msg string, fields ...zap.Field) {
 	l.writer().Info(msg, fields...)
+}
+
+func (l Logger) Warn(msg string, fields ...zapcore.Field) {
+	l.writer().Warn(msg, fields...)
 }
 
 func (l Logger) writer() *zap.Logger {

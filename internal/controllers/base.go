@@ -19,6 +19,10 @@ import (
 
 var keyUserID models.Key = "userID"
 
+type IExternalClient interface {
+	GetData() (string, error)
+}
+
 type Storage interface {
 	InsertOrder(k string, v models.DataОrder) (models.DataОrder, error)
 	InsertUser(k string, v models.DataUser) (models.DataUser, error)
@@ -196,8 +200,8 @@ func (h *BaseController) createOrder(w http.ResponseWriter, r *http.Request) {
 
 	orderNum := string(body)
 
-	orderNumInt, err := strconv.Atoi(orderNum)
-	if err != nil || !Valid(orderNumInt) {
+	ord, err := strconv.Atoi(orderNum)
+	if err != nil || !Valid(ord) {
 		// incorrect order number format
 		w.WriteHeader(http.StatusUnprocessableEntity) //code 422
 		h.log.Info("incorrect order number format, request status 422: %v", metod)

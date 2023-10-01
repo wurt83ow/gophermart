@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/go-chi/chi"
@@ -11,6 +12,7 @@ import (
 	"github.com/wurt83ow/gophermart/internal/logger"
 	"github.com/wurt83ow/gophermart/internal/middleware"
 	"github.com/wurt83ow/gophermart/internal/storage"
+	"github.com/wurt83ow/gophermart/internal/worker"
 	"go.uber.org/zap"
 )
 
@@ -29,17 +31,22 @@ func Run() error {
 		defer keeper.Close()
 	}
 
+	ctx := context.Background()
 	memoryStorage := storage.NewMemoryStorage(keeper, nLogger)
 
+	extcontr := controllers.NewExtController(nLogger)
+	worker := worker.NewWorker(extcontr, memoryStorage, nLogger)
+
 	authz := authz.NewJWTAuthz(option.JWTSigningKey(), nLogger)
-	controller := controllers.NewBaseController(memoryStorage, option, nLogger, authz)
+	basecontr := controllers.NewBaseController(memoryStorage, option, nLogger, authz)
 	reqLog := middleware.NewReqLog(nLogger)
 
+	worker.Start(ctx)
 	r := chi.NewRouter()
 	r.Use(reqLog.RequestLogger)
 	r.Use(middleware.GzipMiddleware)
 
-	r.Mount("/", controller.Route())
+	r.Mount("/", basecontr.Route())
 
 	flagRunAddr := option.RunAddr()
 	nLogger.Info("Running server", zap.String("address", flagRunAddr))
