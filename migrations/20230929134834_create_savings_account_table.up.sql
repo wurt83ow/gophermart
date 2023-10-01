@@ -3,7 +3,6 @@ CREATE TABLE IF NOT EXISTS savings_account (
     processed_at date, 
 	id_order_in VARCHAR(50),		
     id_order_out VARCHAR(50),
-    points_in integer,
-	points_out integer,    
+    count_points integer,	     
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE 
 	);

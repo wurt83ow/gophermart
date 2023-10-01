@@ -2,7 +2,6 @@ package storage
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/wurt83ow/gophermart/internal/models"
@@ -20,6 +19,7 @@ type Log interface {
 }
 
 type MemoryStorage struct {
+	omx    sync.RWMutex
 	umx    sync.RWMutex
 	orders StorageOrders
 	users  StorageUsers
@@ -30,7 +30,7 @@ type MemoryStorage struct {
 type Keeper interface {
 	LoadOrders() (StorageOrders, error)
 	LoadUsers() (StorageUsers, error)
-	SaveOrders(string, models.DataОrder) (models.DataОrder, error)
+	SaveOrder(string, models.DataОrder) (models.DataОrder, error)
 	SaveUser(string, models.DataUser) (models.DataUser, error)
 	SaveBatch(StorageOrders) error
 
@@ -86,14 +86,25 @@ func (s *MemoryStorage) GetUser(k string) (models.DataUser, error) {
 }
 
 // InsertOrder implements controllers.Storage.
-func (*MemoryStorage) InsertOrder(k string, v models.DataОrder) (models.DataОrder, error) {
-	panic("unimplemented")
+func (s *MemoryStorage) InsertOrder(k string,
+	v models.DataОrder) (models.DataОrder, error) {
+
+	nv, err := s.SaveOrder(k, v)
+	if err != nil {
+		return nv, err
+	}
+
+	s.omx.Lock()
+	defer s.omx.Unlock()
+
+	s.orders[k] = nv
+
+	return nv, nil
 }
 
 func (s *MemoryStorage) InsertUser(k string,
 	v models.DataUser) (models.DataUser, error) {
 
-	fmt.Println("8888888888888888888888888888")
 	nv, err := s.SaveUser(k, v)
 	if err != nil {
 		return nv, err
@@ -108,8 +119,12 @@ func (s *MemoryStorage) InsertUser(k string,
 }
 
 // SaveOrder implements controllers.Storage.
-func (*MemoryStorage) SaveOrder(k string, v models.DataОrder) (models.DataОrder, error) {
-	panic("unimplemented")
+func (s *MemoryStorage) SaveOrder(k string, v models.DataОrder) (models.DataОrder, error) {
+	if s.keeper == nil {
+		return v, nil
+	}
+
+	return s.keeper.SaveOrder(k, v)
 }
 
 func (s *MemoryStorage) SaveUser(k string, v models.DataUser) (models.DataUser, error) {

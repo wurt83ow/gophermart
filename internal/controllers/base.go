@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi"
@@ -172,11 +173,22 @@ func (h *BaseController) getPing(w http.ResponseWriter, r *http.Request) {
 
 // POST
 func (h *BaseController) createOrder(w http.ResponseWriter, r *http.Request) {
+
+	metod := zap.String("method", r.Method)
+	userID, StatusOK := r.Context().Value(keyUserID).(string)
+	if !StatusOK || userID == "" {
+		// user is not authenticated
+		w.WriteHeader(http.StatusUnauthorized) //code 401
+		h.log.Info("user is not authenticated, request status 401: %v", metod)
+		return
+	}
+
 	// set the correct header for the data type
 	body, err := io.ReadAll(r.Body)
 	if err != nil || len(body) == 0 {
-		w.WriteHeader(http.StatusBadRequest)
-		h.log.Info("got bad request status 400: %v", zap.String("method", r.Method))
+		// invalid request format
+		w.WriteHeader(http.StatusBadRequest) //code 400
+		h.log.Info("invalid request format, request status 400: %v", metod)
 		return
 	}
 
@@ -184,23 +196,67 @@ func (h *BaseController) createOrder(w http.ResponseWriter, r *http.Request) {
 
 	orderNum := string(body)
 
-	// Здесь проверка на luna
-	//!!!
-
-	userID, _ := r.Context().Value(keyUserID).(string)
-	curDate := time.Now()
-	status := "NEW"
-	// save full url to storage with the key received earlier
-	_, err = h.storage.InsertOrder(orderNum, models.DataОrder{Number: orderNum, Date: curDate, Status: status, UserID: userID})
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+	orderNumInt, err := strconv.Atoi(orderNum)
+	if err != nil || !Valid(orderNumInt) {
+		// incorrect order number format
+		w.WriteHeader(http.StatusUnprocessableEntity) //code 422
+		h.log.Info("incorrect order number format, request status 422: %v", metod)
 		return
 	}
 
-	// respond to client
-	w.Header().Set("Content-Type", "text/plain")
+	curDate := time.Now()
+	status := "NEW"
 
-	w.WriteHeader(http.StatusCreated) //code 201
+	// save full url to storage with the key received earlier
+	order, err := h.storage.InsertOrder(orderNum, models.DataОrder{
+		Number: orderNum, Date: curDate, Status: status, UserID: userID})
 
-	h.log.Info("sending HTTP 201 response")
+	if err != nil {
+		if err == storage.ErrConflict {
+			// The order number has already been uploaded
+			if order.UserID == userID {
+				// this user
+				w.WriteHeader(http.StatusOK) //code 200
+			} else {
+				// another user
+				w.WriteHeader(http.StatusConflict) //code 409
+				h.log.Info(`The order number has already been uploaded 
+					another user, request status 409: %v`, metod)
+			}
+			return
+		} else {
+			// internal server error
+			w.WriteHeader(http.StatusInternalServerError) //code 500
+			h.log.Info("internal server error, request status 500: %v", metod)
+			return
+		}
+	}
+
+	// new order number accepted for processing
+	w.WriteHeader(http.StatusAccepted) //code 202
+
+}
+
+// Valid check number is valid or not based on Luhn algorithm
+func Valid(number int) bool {
+	return (number%10+checksum(number/10))%10 == 0
+}
+
+func checksum(number int) int {
+	var luhn int
+
+	for i := 0; number > 0; i++ {
+		cur := number % 10
+
+		if i%2 == 0 { // even
+			cur = cur * 2
+			if cur > 9 {
+				cur = cur%10 + cur/10
+			}
+		}
+
+		luhn += cur
+		number = number / 10
+	}
+	return luhn % 10
 }

@@ -108,9 +108,59 @@ func (*BDKeeper) SaveBatch(map[string]models.DataОrder) error {
 	panic("unimplemented")
 }
 
-// SaveOrders implements storage.Keeper.
-func (*BDKeeper) SaveOrders(string, models.DataОrder) (models.DataОrder, error) {
-	panic("unimplemented")
+func (bdk *BDKeeper) SaveOrder(key string, order models.DataОrder) (models.DataОrder, error) {
+	ctx := context.Background()
+
+	var id string
+	if order.UUID == "" {
+		neuuid := uuid.New()
+		id = neuuid.String()
+	} else {
+		id = order.UUID
+	}
+	_, err := bdk.conn.ExecContext(ctx,
+		`INSERT INTO dataurl (
+			id,
+			number,
+			date,
+			status,
+			user_id)
+		VALUES ($1, $2, $3, $4, $5) 
+		RETURNING user_id`,
+		id, order.Number, order.Date, order.Status, order.UserID)
+
+	row := bdk.conn.QueryRowContext(ctx, `
+	SELECT
+		d.id,
+		d.number,
+		d.date,
+		d.status,
+		d.user_id	 
+	FROM dataurl d	 
+	WHERE
+		d.original_url = $1`,
+		order.Number,
+	)
+
+	// read the values from the database record into the corresponding fields of the structure
+	var m models.DataОrder
+	nerr := row.Scan(&m.UUID, &m.Number, &m.Date, &m.Status, &m.UserID)
+	if nerr != nil {
+		bdk.log.Info("row scan error: ", zap.Error(err))
+		return order, nerr
+	}
+
+	if err != nil {
+		var e *pgconn.PgError
+		if errors.As(err, &e) && e.Code == pgerrcode.UniqueViolation {
+			bdk.log.Info("unique field violation on column: ", zap.Error(err))
+
+			return m, storage.ErrConflict
+		}
+		return m, err
+	}
+
+	return m, nil
 }
 
 func (bdk *BDKeeper) SaveUser(key string, data models.DataUser) (models.DataUser, error) {
