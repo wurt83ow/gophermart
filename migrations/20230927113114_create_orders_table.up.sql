@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS orders (
     id VARCHAR(50) PRIMARY KEY, 
     number VARCHAR(50),     
     date date,  
-    status statuses  
+    status statuses,  
     user_id VARCHAR(50) NOT NULL,        
 	FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE  
     );

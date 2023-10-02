@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"os"
+	"reflect"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -88,14 +90,81 @@ func (*BDKeeper) Close() bool {
 	panic("unimplemented")
 }
 
-// LoadOrders implements storage.Keeper.
-func (*BDKeeper) LoadOrders() (map[string]models.DataОrder, error) {
-	panic("unimplemented")
+func (bdk *BDKeeper) LoadOrders() (storage.StorageOrders, error) {
+	ctx := context.Background()
+
+	// get orders from bd
+	rows, err := bdk.conn.QueryContext(ctx, `SELECT id, number, date, status, user_id FROM orders`)
+
+	if err != nil {
+		fmt.Println("87777777777777777777777777777", err)
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	data := make(storage.StorageOrders)
+	for rows.Next() {
+		record := models.DataОrder{}
+
+		s := reflect.ValueOf(&record).Elem()
+		numCols := s.NumField()
+		columns := make([]interface{}, numCols)
+		for i := 0; i < numCols; i++ {
+			field := s.Field(i)
+			columns[i] = field.Addr().Interface()
+		}
+
+		err := rows.Scan(columns...)
+		if err != nil {
+			log.Fatal(err)
+		}
+		data[record.Number] = record
+	}
+
+	if err = rows.Err(); err != nil {
+		return data, err
+	}
+
+	return data, nil
 }
 
-// LoadUsers implements storage.Keeper.
-func (*BDKeeper) LoadUsers() (map[string]models.DataUser, error) {
-	panic("unimplemented")
+func (bdk *BDKeeper) LoadUsers() (storage.StorageUsers, error) {
+	ctx := context.Background()
+
+	// get users from bd
+	rows, err := bdk.conn.QueryContext(ctx, `SELECT id, name, email, hash FROM users`)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	data := make(storage.StorageUsers)
+	for rows.Next() {
+		record := models.DataUser{}
+
+		s := reflect.ValueOf(&record).Elem()
+		numCols := s.NumField()
+		columns := make([]interface{}, numCols)
+		for i := 0; i < numCols; i++ {
+			field := s.Field(i)
+			columns[i] = field.Addr().Interface()
+		}
+
+		err := rows.Scan(columns...)
+		if err != nil {
+			log.Fatal(err)
+		}
+		data[record.Email] = record
+	}
+
+	if err = rows.Err(); err != nil {
+		return data, err
+	}
+
+	return data, nil
 }
 
 // Ping implements storage.Keeper.

@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/wurt83ow/gophermart/internal/models"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -42,18 +43,18 @@ func NewMemoryStorage(keeper Keeper, log Log) *MemoryStorage {
 	orders := make(StorageOrders)
 	users := make(StorageUsers)
 
-	// if keeper != nil {
-	// 	var err error
-	// 	orders, err = keeper.Load()
-	// 	if err != nil {
-	// 		log.Info("cannot load url data: ", zap.Error(err))
-	// 	}
+	if keeper != nil {
+		var err error
+		orders, err = keeper.LoadOrders()
+		if err != nil {
+			log.Info("cannot load url data: ", zap.Error(err))
+		}
 
-	// 	users, err = keeper.LoadUsers()
-	// 	if err != nil {
-	// 		log.Info("cannot load user data: ", zap.Error(err))
-	// 	}
-	// }
+		users, err = keeper.LoadUsers()
+		if err != nil {
+			log.Info("cannot load user data: ", zap.Error(err))
+		}
+	}
 
 	return &MemoryStorage{
 		orders: orders,
@@ -85,7 +86,6 @@ func (s *MemoryStorage) GetUser(k string) (models.DataUser, error) {
 	return v, nil
 }
 
-// InsertOrder implements controllers.Storage.
 func (s *MemoryStorage) InsertOrder(k string,
 	v models.DataОrder) (models.DataОrder, error) {
 
@@ -118,7 +118,6 @@ func (s *MemoryStorage) InsertUser(k string,
 	return nv, nil
 }
 
-// SaveOrder implements controllers.Storage.
 func (s *MemoryStorage) SaveOrder(k string, v models.DataОrder) (models.DataОrder, error) {
 	if s.keeper == nil {
 		return v, nil
