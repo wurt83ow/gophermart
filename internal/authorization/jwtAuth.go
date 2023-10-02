@@ -83,27 +83,10 @@ func (j *JWTAuthz) JWTAuthzMiddleware(log Log) func(next http.Handler) http.Hand
 				}
 			}
 
-			// if userID == "" {
-			// 	userID = uuid.New().String()
-
-			// 	go func() {
-			// 		email := uuid.New().String()
-			// 		dataUser := models.DataUser{UUID: userID, Email: email, Name: "default"}
-			// 		_, err = storage.InsertUser(email, dataUser)
-			// 		if err != nil {
-			// 			log.Info("Error occurred user create", zap.Error(err))
-			// 		}
-			// 	}()
-
-			// 	freshToken := j.CreateJWTTokenForUser(userID)
-			// 	http.SetCookie(w, j.AuthCookie("jwt-token", freshToken))
-			// 	// http.SetCookie(w, authz.AuthCookie("Authorization", freshToken))
-			// 	w.Header().Set("Authorization", freshToken)
-			// }
-
 			var keyUserID models.Key = "userID"
 			ctx := r.Context()
 			ctx = context.WithValue(ctx, keyUserID, userID)
+
 			next.ServeHTTP(w, r.WithContext(ctx))
 		}
 

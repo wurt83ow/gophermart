@@ -131,15 +131,21 @@ func (h *BaseController) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *BaseController) Login(w http.ResponseWriter, r *http.Request) {
+	metod := zap.String("method", r.Method)
+
 	var rb models.RequestUser
 	if err := json.NewDecoder(r.Body).Decode(&rb); err != nil {
+		// invalid request format
 		w.WriteHeader(http.StatusBadRequest)
+		h.log.Info("invalid request format, request status 400: ", metod)
 		return
 	}
 
 	user, err := h.storage.GetUser(rb.Email)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		// incorrect login/password pair
+		w.WriteHeader(http.StatusUnauthorized) //code 401
+		h.log.Info("incorrect login/password pair, request status 401: ", metod)
 		return
 	}
 
@@ -154,7 +160,9 @@ func (h *BaseController) Login(w http.ResponseWriter, r *http.Request) {
 		})
 
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
+			// internal server error
+			w.WriteHeader(http.StatusInternalServerError) //code 500
+			h.log.Info("internal server error, request status 500: ", metod)
 			return
 		}
 
@@ -166,15 +174,21 @@ func (h *BaseController) Login(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		// internal server error
+		w.WriteHeader(http.StatusInternalServerError) //code 500
+		h.log.Info("internal server error, request status 500: ", metod)
 		return
 	}
+
+	// incorrect login/password pair
+	w.WriteHeader(http.StatusUnauthorized) //code 401
+	h.log.Info("incorrect login/password pair, request status 401: ", metod)
 }
 
 // POST
 func (h *BaseController) createOrder(w http.ResponseWriter, r *http.Request) {
-
 	metod := zap.String("method", r.Method)
+
 	userID, StatusOK := r.Context().Value(keyUserID).(string)
 	if !StatusOK || userID == "" {
 		// user is not authenticated
@@ -243,7 +257,7 @@ func (h *BaseController) getUserOrders(w http.ResponseWriter, r *http.Request) {
 	metod := zap.String("method", r.Method)
 
 	userID, ok := r.Context().Value(keyUserID).(string)
-	if !ok {
+	if !ok || len(userID) == 0 {
 		// user is not authorized
 		w.WriteHeader(http.StatusUnauthorized) //401
 		h.log.Info("user is not authenticated, request status 401: ", metod)
