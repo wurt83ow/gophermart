@@ -26,8 +26,8 @@ type IExternalClient interface {
 type Storage interface {
 	InsertOrder(k string, v models.DataОrder) (models.DataОrder, error)
 	InsertUser(k string, v models.DataUser) (models.DataUser, error)
-	GetOrder(k string) (models.DataОrder, error)
 	GetUser(k string) (models.DataUser, error)
+	GetUserOrders(userID string) []models.DataОrder
 	SaveOrder(k string, v models.DataОrder) (models.DataОrder, error)
 	SaveUser(k string, v models.DataUser) (models.DataUser, error)
 	GetBaseConnection() bool
@@ -78,7 +78,7 @@ func (h *BaseController) Route() *chi.Mux {
 		r.Use(h.authz.JWTAuthzMiddleware(h.storage, h.log))
 
 		r.Post("/api/user/orders", h.createOrder)
-		// r.Get("/api/user/urls", h.getUserURLs)
+		r.Get("/api/user/orders", h.getUserOrders)
 
 	})
 
@@ -163,18 +163,6 @@ func (h *BaseController) Login(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GET
-func (h *BaseController) getPing(w http.ResponseWriter, r *http.Request) {
-	if !h.storage.GetBaseConnection() {
-		h.log.Info("got status internal server error")
-		w.WriteHeader(http.StatusInternalServerError) // 500
-		return
-	}
-
-	w.WriteHeader(http.StatusOK) // 200
-	h.log.Info("sending HTTP 200 response")
-}
-
 // POST
 func (h *BaseController) createOrder(w http.ResponseWriter, r *http.Request) {
 
@@ -238,7 +226,51 @@ func (h *BaseController) createOrder(w http.ResponseWriter, r *http.Request) {
 
 	// new order number accepted for processing
 	w.WriteHeader(http.StatusAccepted) //code 202
+}
 
+// GET
+func (h *BaseController) getUserOrders(w http.ResponseWriter, r *http.Request) {
+	metod := zap.String("method", r.Method)
+
+	userID, ok := r.Context().Value(keyUserID).(string)
+	if !ok {
+		// user is not authorized
+		w.WriteHeader(http.StatusUnauthorized) //401
+		h.log.Info("user is not authenticated, request status 401: %v", metod)
+		return
+	}
+
+	orders := h.storage.GetUserOrders(userID)
+	if len(orders) == 0 {
+		// no information to answer
+		w.WriteHeader(http.StatusNoContent) // 204
+		h.log.Info("no information to answer, request status 204: %v", metod)
+		return
+	}
+
+	// serialize the server response
+	enc := json.NewEncoder(w)
+	if err := enc.Encode(orders); err != nil {
+		// Internal Server Error
+		w.WriteHeader(http.StatusInternalServerError) //code 500
+		h.log.Info("Internal Server Error: ", zap.Error(err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK) //code 200
+}
+
+// GET
+func (h *BaseController) getPing(w http.ResponseWriter, r *http.Request) {
+	if !h.storage.GetBaseConnection() {
+		h.log.Info("got status internal server error")
+		w.WriteHeader(http.StatusInternalServerError) // 500
+		return
+	}
+
+	w.WriteHeader(http.StatusOK) // 200
+	h.log.Info("sending HTTP 200 response")
 }
 
 // Valid check number is valid or not based on Luhn algorithm

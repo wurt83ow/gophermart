@@ -44,7 +44,7 @@ func Run() error {
 	worker.Start(ctx)
 	r := chi.NewRouter()
 	r.Use(reqLog.RequestLogger)
-	r.Use(middleware.GzipMiddleware)
+	// r.Use(middleware.GzipMiddleware)
 
 	r.Mount("/", basecontr.Route())
 

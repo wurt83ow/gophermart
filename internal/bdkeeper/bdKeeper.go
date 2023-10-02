@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"reflect"
+	"time"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -85,19 +86,25 @@ func NewBDKeeper(dsn func() string, log Log) *BDKeeper {
 	}
 }
 
-// Close implements storage.Keeper.
-func (*BDKeeper) Close() bool {
-	panic("unimplemented")
-}
-
 func (bdk *BDKeeper) LoadOrders() (storage.StorageOrders, error) {
 	ctx := context.Background()
 
 	// get orders from bd
-	rows, err := bdk.conn.QueryContext(ctx, `SELECT id, number, date, status, user_id FROM orders`)
+	rows, err := bdk.conn.QueryContext(ctx, `
+	SELECT 
+		o.id,
+		o.number,
+		o.status,
+		o.date,
+		'' AS date_rfc,				
+		COALESCE(s.accrual, 0) AS accrual,
+		o.user_id	
+	FROM orders AS o
+	LEFT JOIN savings_account AS s 
+	ON o.id = s.id_order_in
+		AND o.date = s.processed_at`)
 
 	if err != nil {
-		fmt.Println("87777777777777777777777777777", err)
 		return nil, err
 	}
 
@@ -167,16 +174,6 @@ func (bdk *BDKeeper) LoadUsers() (storage.StorageUsers, error) {
 	return data, nil
 }
 
-// Ping implements storage.Keeper.
-func (*BDKeeper) Ping() bool {
-	panic("unimplemented")
-}
-
-// SaveBatch implements storage.Keeper.
-func (*BDKeeper) SaveBatch(map[string]models.DataОrder) error {
-	panic("unimplemented")
-}
-
 func (bdk *BDKeeper) SaveOrder(key string, order models.DataОrder) (models.DataОrder, error) {
 	ctx := context.Background()
 
@@ -188,7 +185,7 @@ func (bdk *BDKeeper) SaveOrder(key string, order models.DataОrder) (models.Data
 		id = order.UUID
 	}
 	_, err := bdk.conn.ExecContext(ctx,
-		`INSERT INTO dataurl (
+		`INSERT INTO orders (
 			id,
 			number,
 			date,
@@ -205,9 +202,9 @@ func (bdk *BDKeeper) SaveOrder(key string, order models.DataОrder) (models.Data
 		d.date,
 		d.status,
 		d.user_id	 
-	FROM dataurl d	 
+	FROM orders d	 
 	WHERE
-		d.original_url = $1`,
+		d.number = $1`,
 		order.Number,
 	)
 
@@ -291,4 +288,21 @@ func (bdk *BDKeeper) SaveUser(key string, data models.DataUser) (models.DataUser
 	}
 
 	return m, nil
+}
+
+func (bdk *BDKeeper) Ping() bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	if err := bdk.conn.PingContext(ctx); err != nil {
+		return false
+	}
+
+	return true
+}
+
+func (bdk *BDKeeper) Close() bool {
+	bdk.conn.Close()
+
+	return true
 }

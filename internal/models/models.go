@@ -5,11 +5,13 @@ import "time"
 type Key string
 
 type DataОrder struct {
-	UUID   string    `db:"id" json:"id"`
-	Number string    `db:"number" json:"number"`
-	Date   time.Time `db:"date" json:"date"`
-	Status string    `db:"status" json:"status"`
-	UserID string    `db:"user_id" json:"user_id"`
+	UUID    string    `db:"id" json:"-"`
+	Number  string    `db:"number" json:"number"`
+	Status  string    `db:"status" json:"status"`
+	Date    time.Time `db:"date" json:"-"`
+	DateRFC string    `db:"date_rfc" json:"uploaded_at"`
+	Accrual uint      `db:"accrual" json:"accrual,omitempty"`
+	UserID  string    `db:"user_id" json:"-"`
 }
 
 type DataUser struct {

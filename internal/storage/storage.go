@@ -2,7 +2,10 @@ package storage
 
 import (
 	"errors"
+	"fmt"
+	"sort"
 	"sync"
+	"time"
 
 	"github.com/wurt83ow/gophermart/internal/models"
 	"go.uber.org/zap"
@@ -33,8 +36,6 @@ type Keeper interface {
 	LoadUsers() (StorageUsers, error)
 	SaveOrder(string, models.DataОrder) (models.DataОrder, error)
 	SaveUser(string, models.DataUser) (models.DataUser, error)
-	SaveBatch(StorageOrders) error
-
 	Ping() bool
 	Close() bool
 }
@@ -62,16 +63,6 @@ func NewMemoryStorage(keeper Keeper, log Log) *MemoryStorage {
 		keeper: keeper,
 		log:    log,
 	}
-}
-
-// GetBaseConnection implements controllers.Storage.
-func (*MemoryStorage) GetBaseConnection() bool {
-	panic("unimplemented")
-}
-
-// GetOrder implements controllers.Storage.
-func (*MemoryStorage) GetOrder(k string) (models.DataОrder, error) {
-	panic("unimplemented")
 }
 
 func (s *MemoryStorage) GetUser(k string) (models.DataUser, error) {
@@ -118,6 +109,29 @@ func (s *MemoryStorage) InsertUser(k string,
 	return nv, nil
 }
 
+func (s *MemoryStorage) GetUserOrders(userID string) []models.DataОrder {
+	var orders []models.DataОrder
+
+	fmt.Println("7777777777777777777777", userID)
+	s.omx.RLock()
+	defer s.omx.RUnlock()
+
+	for _, o := range s.orders {
+		if o.UserID == userID {
+
+			orders = append(orders, models.DataОrder{
+				Number: o.Number, Status: o.Status, Accrual: o.Accrual, Date: o.Date,
+				DateRFC: o.Date.Format(time.RFC3339)})
+		}
+	}
+
+	sort.SliceStable(orders, func(i, j int) bool {
+		return orders[i].Date.After(orders[j].Date)
+	})
+
+	return orders
+}
+
 func (s *MemoryStorage) SaveOrder(k string, v models.DataОrder) (models.DataОrder, error) {
 	if s.keeper == nil {
 		return v, nil
@@ -132,4 +146,12 @@ func (s *MemoryStorage) SaveUser(k string, v models.DataUser) (models.DataUser, 
 	}
 
 	return s.keeper.SaveUser(k, v)
+}
+
+func (s *MemoryStorage) GetBaseConnection() bool {
+	if s.keeper == nil {
+		return false
+	}
+
+	return s.keeper.Ping()
 }
