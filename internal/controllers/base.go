@@ -43,7 +43,7 @@ type Log interface {
 }
 
 type Authz interface {
-	JWTAuthzMiddleware(authz.Storage, authz.Log) func(http.Handler) http.Handler
+	JWTAuthzMiddleware(authz.Log) func(http.Handler) http.Handler
 	GetHash(email string, password string) []byte
 	CreateJWTTokenForUser(userid string) string
 	AuthCookie(name string, token string) *http.Cookie
@@ -75,7 +75,7 @@ func (h *BaseController) Route() *chi.Mux {
 
 	// group where the middleware authorization is needed
 	r.Group(func(r chi.Router) {
-		r.Use(h.authz.JWTAuthzMiddleware(h.storage, h.log))
+		r.Use(h.authz.JWTAuthzMiddleware(h.log))
 
 		r.Post("/api/user/orders", h.createOrder)
 		r.Get("/api/user/orders", h.getUserOrders)
@@ -91,29 +91,31 @@ func (h *BaseController) Register(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(r.Body)
 	if err := dec.Decode(&regReq); err != nil {
 		h.log.Info("cannot decode request JSON body: ", zap.Error(err))
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest) // code 400
 		return
 	}
 
-	// _, err := h.storage.GetUser(regReq.Email)
-	// if err == nil {
-	// 	h.log.Info("the user is already registered: ", zap.Error(err))
-	// 	w.WriteHeader(http.StatusBadRequest) // 400
-	// 	return
-	// }
+	_, err := h.storage.GetUser(regReq.Email)
+	if err == nil {
+		// login is already taken
+		h.log.Info("login is already taken: ", zap.Error(err))
+		w.WriteHeader(http.StatusConflict) // 409
+		return
+	}
 
 	Hash := h.authz.GetHash(regReq.Email, regReq.Password)
 
 	// save the user to the storage
-	dataUser := models.DataUser{UUID: uuid.New().String(), Email: regReq.Email, Hash: Hash, Name: regReq.Name}
+	dataUser := models.DataUser{UUID: uuid.New().String(), Email: regReq.Email, Hash: Hash, Name: regReq.Email}
 
-	_, err := h.storage.InsertUser(regReq.Email, dataUser)
-
+	_, err = h.storage.InsertUser(regReq.Email, dataUser)
 	if err != nil {
-		h.log.Info("error insert user to storage: ", zap.Error(err))
+		// login is already taken
 		if err == storage.ErrConflict {
+			h.log.Info("login is already taken: ", zap.Error(err))
 			w.WriteHeader(http.StatusConflict) //code 409
 		} else {
+			h.log.Info("error insert user to storage: ", zap.Error(err))
 			w.WriteHeader(http.StatusInternalServerError) // code 500
 			return
 		}
@@ -236,6 +238,8 @@ func (h *BaseController) createOrder(w http.ResponseWriter, r *http.Request) {
 
 // GET
 func (h *BaseController) getUserOrders(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
 	metod := zap.String("method", r.Method)
 
 	userID, ok := r.Context().Value(keyUserID).(string)
@@ -262,8 +266,6 @@ func (h *BaseController) getUserOrders(w http.ResponseWriter, r *http.Request) {
 		h.log.Info("Internal Server Error: ", zap.Error(err))
 		return
 	}
-
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK) //code 200
 }
 

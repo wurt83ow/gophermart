@@ -2,7 +2,6 @@ package storage
 
 import (
 	"errors"
-	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -112,7 +111,6 @@ func (s *MemoryStorage) InsertUser(k string,
 func (s *MemoryStorage) GetUserOrders(userID string) []models.DataОrder {
 	var orders []models.DataОrder
 
-	fmt.Println("7777777777777777777777", userID)
 	s.omx.RLock()
 	defer s.omx.RUnlock()
 

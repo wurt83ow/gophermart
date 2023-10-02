@@ -8,16 +8,16 @@ import (
 	"net/http"
 
 	"github.com/golang-jwt/jwt"
-	"github.com/google/uuid"
 	"github.com/wurt83ow/gophermart/internal/config"
 	"github.com/wurt83ow/gophermart/internal/models"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-type Storage interface {
-	InsertUser(k string, v models.DataUser) (models.DataUser, error)
-}
+// type Storage interface {
+// 	InsertUser(k string, v models.DataUser) (models.DataUser, error)
+// }
+
 type CustomClaims struct {
 	Email string `json:"email"`
 	jwt.StandardClaims
@@ -51,7 +51,7 @@ func NewJWTAuthz(signingKey string, log Log) *JWTAuthz {
 
 // JWTAuthzMiddleware verifies a valid JWT exists in our
 // cookie and if not, encourages the consumer to login again.
-func (j *JWTAuthz) JWTAuthzMiddleware(storage Storage, log Log) func(next http.Handler) http.Handler {
+func (j *JWTAuthz) JWTAuthzMiddleware(log Log) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
 
@@ -83,23 +83,23 @@ func (j *JWTAuthz) JWTAuthzMiddleware(storage Storage, log Log) func(next http.H
 				}
 			}
 
-			if userID == "" {
-				userID = uuid.New().String()
+			// if userID == "" {
+			// 	userID = uuid.New().String()
 
-				go func() {
-					email := uuid.New().String()
-					dataUser := models.DataUser{UUID: userID, Email: email, Name: "default"}
-					_, err = storage.InsertUser(email, dataUser)
-					if err != nil {
-						log.Info("Error occurred user create", zap.Error(err))
-					}
-				}()
+			// 	go func() {
+			// 		email := uuid.New().String()
+			// 		dataUser := models.DataUser{UUID: userID, Email: email, Name: "default"}
+			// 		_, err = storage.InsertUser(email, dataUser)
+			// 		if err != nil {
+			// 			log.Info("Error occurred user create", zap.Error(err))
+			// 		}
+			// 	}()
 
-				freshToken := j.CreateJWTTokenForUser(userID)
-				http.SetCookie(w, j.AuthCookie("jwt-token", freshToken))
-				// http.SetCookie(w, authz.AuthCookie("Authorization", freshToken))
-				w.Header().Set("Authorization", freshToken)
-			}
+			// 	freshToken := j.CreateJWTTokenForUser(userID)
+			// 	http.SetCookie(w, j.AuthCookie("jwt-token", freshToken))
+			// 	// http.SetCookie(w, authz.AuthCookie("Authorization", freshToken))
+			// 	w.Header().Set("Authorization", freshToken)
+			// }
 
 			var keyUserID models.Key = "userID"
 			ctx := r.Context()

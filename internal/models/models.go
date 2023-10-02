@@ -22,8 +22,7 @@ type DataUser struct {
 }
 
 type RequestUser struct {
-	Email    string `json:"email"`
-	Name     string `json:"name"`
+	Email    string `json:"login"`
 	Password string `json:"password"`
 }
 
