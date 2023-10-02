@@ -95,31 +95,37 @@ func (h *BaseController) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := h.storage.GetUser(regReq.Email)
-	if err == nil {
-		h.log.Info("the user is already registered: ", zap.Error(err))
-		w.WriteHeader(http.StatusBadRequest) // 400
-		return
-	}
+	// _, err := h.storage.GetUser(regReq.Email)
+	// if err == nil {
+	// 	h.log.Info("the user is already registered: ", zap.Error(err))
+	// 	w.WriteHeader(http.StatusBadRequest) // 400
+	// 	return
+	// }
 
 	Hash := h.authz.GetHash(regReq.Email, regReq.Password)
 
 	// save the user to the storage
 	dataUser := models.DataUser{UUID: uuid.New().String(), Email: regReq.Email, Hash: Hash, Name: regReq.Name}
 
-	_, err = h.storage.InsertUser(regReq.Email, dataUser)
+	_, err := h.storage.InsertUser(regReq.Email, dataUser)
 
 	if err != nil {
+		h.log.Info("error insert user to storage: ", zap.Error(err))
 		if err == storage.ErrConflict {
 			w.WriteHeader(http.StatusConflict) //code 409
 		} else {
-			w.WriteHeader(http.StatusBadRequest) // code 400
+			w.WriteHeader(http.StatusInternalServerError) // code 500
 			return
 		}
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	h.log.Info("sending HTTP 201 response")
+	freshToken := h.authz.CreateJWTTokenForUser(dataUser.UUID)
+	http.SetCookie(w, h.authz.AuthCookie("jwt-token", freshToken))
+	http.SetCookie(w, h.authz.AuthCookie("Authorization", freshToken))
+
+	w.Header().Set("Authorization", freshToken)
+	w.WriteHeader(http.StatusOK)
+	h.log.Info("sending HTTP 200 response")
 }
 
 func (h *BaseController) Login(w http.ResponseWriter, r *http.Request) {
@@ -171,7 +177,7 @@ func (h *BaseController) createOrder(w http.ResponseWriter, r *http.Request) {
 	if !StatusOK || userID == "" {
 		// user is not authenticated
 		w.WriteHeader(http.StatusUnauthorized) //code 401
-		h.log.Info("user is not authenticated, request status 401: %v", metod)
+		h.log.Info("user is not authenticated, request status 401: ", metod)
 		return
 	}
 
@@ -180,7 +186,7 @@ func (h *BaseController) createOrder(w http.ResponseWriter, r *http.Request) {
 	if err != nil || len(body) == 0 {
 		// invalid request format
 		w.WriteHeader(http.StatusBadRequest) //code 400
-		h.log.Info("invalid request format, request status 400: %v", metod)
+		h.log.Info("invalid request format, request status 400: ", metod)
 		return
 	}
 
@@ -192,7 +198,7 @@ func (h *BaseController) createOrder(w http.ResponseWriter, r *http.Request) {
 	if err != nil || !Valid(ord) {
 		// incorrect order number format
 		w.WriteHeader(http.StatusUnprocessableEntity) //code 422
-		h.log.Info("incorrect order number format, request status 422: %v", metod)
+		h.log.Info("incorrect order number format, request status 422: ", metod)
 		return
 	}
 
@@ -213,13 +219,13 @@ func (h *BaseController) createOrder(w http.ResponseWriter, r *http.Request) {
 				// another user
 				w.WriteHeader(http.StatusConflict) //code 409
 				h.log.Info(`The order number has already been uploaded 
-					another user, request status 409: %v`, metod)
+					another user, request status 409: `, metod)
 			}
 			return
 		} else {
 			// internal server error
 			w.WriteHeader(http.StatusInternalServerError) //code 500
-			h.log.Info("internal server error, request status 500: %v", metod)
+			h.log.Info("internal server error, request status 500: ", metod)
 			return
 		}
 	}
@@ -236,7 +242,7 @@ func (h *BaseController) getUserOrders(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		// user is not authorized
 		w.WriteHeader(http.StatusUnauthorized) //401
-		h.log.Info("user is not authenticated, request status 401: %v", metod)
+		h.log.Info("user is not authenticated, request status 401: ", metod)
 		return
 	}
 
@@ -244,7 +250,7 @@ func (h *BaseController) getUserOrders(w http.ResponseWriter, r *http.Request) {
 	if len(orders) == 0 {
 		// no information to answer
 		w.WriteHeader(http.StatusNoContent) // 204
-		h.log.Info("no information to answer, request status 204: %v", metod)
+		h.log.Info("no information to answer, request status 204: ", metod)
 		return
 	}
 
