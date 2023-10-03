@@ -35,6 +35,7 @@ func Run() error {
 	memoryStorage := storage.NewMemoryStorage(keeper, nLogger)
 
 	extcontr := controllers.NewExtController(nLogger)
+	extcontr.GetData()
 	worker := worker.NewWorker(extcontr, memoryStorage, nLogger)
 
 	authz := authz.NewJWTAuthz(option.JWTSigningKey(), nLogger)

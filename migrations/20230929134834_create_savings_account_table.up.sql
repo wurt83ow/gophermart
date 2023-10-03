@@ -3,6 +3,6 @@ CREATE TABLE IF NOT EXISTS savings_account (
     processed_at timestamp without time zone NOT NULL, 
 	id_order_in VARCHAR(50),		
     id_order_out VARCHAR(50),
-    accrual integer,	     
+    accrual numeric,	     
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE 
 	);
