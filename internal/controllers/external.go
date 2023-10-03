@@ -1,55 +1,140 @@
 package controllers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
+	"sync"
+	"time"
 
 	"github.com/wurt83ow/gophermart/internal/models"
-	"go.uber.org/zap"
+	"github.com/wurt83ow/gophermart/internal/workerpool"
 )
 
 type ExtController struct {
-	log Log
+	storage    Storage
+	log        Log
+	pool       Pool
+	wg         *sync.WaitGroup
+	cancelFunc context.CancelFunc
 }
 
-func NewExtController(log Log) *ExtController {
+type Pool interface {
+	AddTask(*workerpool.Task)
+	AddResults(interface{})
+	GetResults() <-chan interface{}
+}
+
+func NewExtController(storage Storage, pool Pool, log Log) *ExtController {
 	return &ExtController{
-		log: log,
+		storage: storage,
+		pool:    pool,
+		log:     log,
+		wg:      new(sync.WaitGroup),
 	}
 }
 
-func (c ExtController) GetData() (*models.ExtRespOrder, error) {
+func (c *ExtController) Start(pctx context.Context) {
+	c.log.Info("Start worker")
+	ctx, canselFunc := context.WithCancel(pctx)
+	c.cancelFunc = canselFunc
+	c.wg.Add(1)
+	go c.SubmitOrders(ctx)
+}
 
-	url := "http://localhost:8082/api/orders/356477"
+func (c *ExtController) Stop() {
+	c.log.Info("Stop worker")
+	c.cancelFunc()
+	c.wg.Wait()
+}
+
+func (c *ExtController) GetOrder(order string) (models.ExtRespOrder, error) {
+
+	url := "http://localhost:8082/api/orders/" + order // !!! прокинуть config
+
 	resp, err := http.Get(url)
 	if err != nil {
-		// we will get an error at this stage if the request fails, such as if the
-		// requested URL is not found, or if the server is not reachable.
-		log.Fatal(err)
+		log.Fatal(err) //!!! log
 	}
 	defer resp.Body.Close()
 
-	// if we want to check for a specific status code, we can do so here
-	// for example, a successful request should return a 200 OK status
 	if resp.StatusCode != http.StatusOK {
-		// if the status code is not 200, we should log the status code and the
-		// status string, then exit with a fatal error
-		code := zap.String("code", strconv.Itoa(resp.StatusCode))
-		status := zap.String("code", resp.Status)
-		c.log.Info("status code error: ", code, status)
+		fmt.Println("status code error: ", resp.StatusCode, resp.Status)
 	}
 
 	respOrd := models.ExtRespOrder{}
 	dec := json.NewDecoder(resp.Body)
 	if err := dec.Decode(&respOrd); err != nil {
-		c.log.Info("cannot decode request JSON body: ", zap.Error(err))
-
-		return nil, err
+		return models.ExtRespOrder{}, err
 	}
 
-	fmt.Println("7777777777777777777777777", respOrd.Status)
-	return &respOrd, nil
+	return respOrd, nil
+}
+
+func (c *ExtController) SubmitOrders(ctx context.Context) {
+
+	t := time.NewTicker(10 * time.Second)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			c.GetOrders(ctx)
+			c.ResultProcessing()
+		}
+	}
+}
+
+func (c *ExtController) GetOrders(ctx context.Context) {
+	var task *workerpool.Task
+
+	orders, err := c.storage.GetOpenOrders()
+	if err != nil {
+		return //!!! Что здесь?
+	}
+
+	for _, o := range orders {
+		taskID := o
+		task = workerpool.NewTask(func(data interface{}) error {
+			order := data.(string)
+			orderdata, err := c.GetOrder(order)
+
+			if err != nil {
+				return err
+			}
+			fmt.Printf("Task %s processed\n", order)
+			c.pool.AddResults(orderdata)
+			// time.Sleep(100 * time.Millisecond)
+
+			return nil
+		}, taskID)
+		c.pool.AddTask(task)
+	}
+	orders = nil
+}
+
+func (c *ExtController) ResultProcessing() {
+
+	t := time.NewTicker(10 * time.Second)
+	result := make([]interface{}, 0)
+	for {
+		select {
+		case job := <-c.pool.GetResults():
+			result = append(result, job)
+		case <-t.C:
+			if len(result) != 0 {
+				//!!! Создать и загрузить результат в массив структур
+				// 1.Вызвать методы storage UpdateOrderStatus и метод кипера
+				// для группового обновления таблицы orders (поле статус)
+				// 2. Отобрать в массиве только структуры с accruel и вызвать
+				// метод storage InsertAccruel и метод кипера для добавления записей
+				// в savings_account
+
+				result = nil
+			}
+		}
+	}
 }

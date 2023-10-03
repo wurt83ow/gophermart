@@ -12,7 +12,7 @@ import (
 	"github.com/wurt83ow/gophermart/internal/logger"
 	"github.com/wurt83ow/gophermart/internal/middleware"
 	"github.com/wurt83ow/gophermart/internal/storage"
-	"github.com/wurt83ow/gophermart/internal/worker"
+	"github.com/wurt83ow/gophermart/internal/workerpool"
 	"go.uber.org/zap"
 )
 
@@ -31,18 +31,19 @@ func Run() error {
 		defer keeper.Close()
 	}
 
-	ctx := context.Background()
 	memoryStorage := storage.NewMemoryStorage(keeper, nLogger)
 
-	extcontr := controllers.NewExtController(nLogger)
-	extcontr.GetData()
-	worker := worker.NewWorker(extcontr, memoryStorage, nLogger)
+	var allTask []*workerpool.Task
+	pool := workerpool.NewPool(allTask, 10) //!!! вынести в config кол. воркеров
+	extcontr := controllers.NewExtController(memoryStorage, pool, nLogger)
+	ctx := context.Background()
+	extcontr.Start(ctx)
 
 	authz := authz.NewJWTAuthz(option.JWTSigningKey(), nLogger)
 	basecontr := controllers.NewBaseController(memoryStorage, option, nLogger, authz)
 	reqLog := middleware.NewReqLog(nLogger)
+	pool.RunBackground()
 
-	worker.Start(ctx)
 	r := chi.NewRouter()
 	r.Use(reqLog.RequestLogger)
 	// r.Use(middleware.GzipMiddleware)

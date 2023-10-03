@@ -28,6 +28,7 @@ type Storage interface {
 	InsertUser(k string, v models.DataUser) (models.DataUser, error)
 	GetUser(k string) (models.DataUser, error)
 	GetUserOrders(userID string) []models.DataОrder
+	GetOpenOrders() ([]string, error)
 	SaveOrder(k string, v models.DataОrder) (models.DataОrder, error)
 	SaveUser(k string, v models.DataUser) (models.DataUser, error)
 	GetBaseConnection() bool

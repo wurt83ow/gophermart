@@ -86,6 +86,42 @@ func NewBDKeeper(dsn func() string, log Log) *BDKeeper {
 	}
 }
 
+func (bdk *BDKeeper) GetOpenOrders() ([]string, error) {
+	ctx := context.Background()
+
+	// get orders from bd
+	rows, err := bdk.conn.QueryContext(ctx, `
+	SELECT number
+	FROM public.orders
+	WHERE status <> 'INVALID'
+	AND status <> 'PROCESSED'
+	LIMIT 100
+	`)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	orders := make([]string, 0)
+	for rows.Next() {
+
+		var order string
+		err := rows.Scan(order)
+		if err != nil {
+			log.Fatal(err)
+		}
+		orders = append(orders, order)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return orders, nil
+}
+
 func (bdk *BDKeeper) LoadOrders() (storage.StorageOrders, error) {
 	ctx := context.Background()
 

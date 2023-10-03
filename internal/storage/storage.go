@@ -35,6 +35,7 @@ type Keeper interface {
 	LoadUsers() (StorageUsers, error)
 	SaveOrder(string, models.DataОrder) (models.DataОrder, error)
 	SaveUser(string, models.DataUser) (models.DataUser, error)
+	GetOpenOrders() ([]string, error)
 	Ping() bool
 	Close() bool
 }
@@ -74,6 +75,15 @@ func (s *MemoryStorage) GetUser(k string) (models.DataUser, error) {
 	}
 
 	return v, nil
+}
+
+func (s *MemoryStorage) GetOpenOrders() ([]string, error) {
+	orders, err := s.keeper.GetOpenOrders()
+	if err != nil {
+		return nil, err
+	}
+
+	return orders, nil
 }
 
 func (s *MemoryStorage) InsertOrder(k string,
