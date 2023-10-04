@@ -30,6 +30,16 @@ type MemoryStorage struct {
 	log    Log
 }
 
+// UpdateOrderStatus implements workerpool.Storage.
+func (*MemoryStorage) UpdateOrderStatus(result []models.ExtRespOrder) error {
+	panic("unimplemented")
+}
+
+// InsertAccruel implements workerpool.Storage.
+func (*MemoryStorage) InsertAccruel(result []models.ExtRespOrder) error {
+	panic("unimplemented")
+}
+
 type Keeper interface {
 	LoadOrders() (StorageOrders, error)
 	LoadUsers() (StorageUsers, error)

@@ -16,6 +16,8 @@ type External interface {
 }
 type Storage interface {
 	GetOpenOrders() ([]string, error)
+	UpdateOrderStatus([]models.ExtRespOrder) error
+	InsertAccruel([]models.ExtRespOrder) error
 }
 
 // Pool воркера
@@ -122,17 +124,26 @@ func (p *Pool) UpdateOrders(ctx context.Context) {
 
 	t := time.NewTicker(10 * time.Second)
 
+	result := make([]models.ExtRespOrder, 0)
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case job := <-p.results:
+			result = append(result, job.(models.ExtRespOrder))
 		case <-t.C:
 			orders, err := p.storage.GetOpenOrders()
 			if err != nil {
 				return
 			}
 			p.CreateOrdersTask(orders)
+
+			if len(result) != 0 {
+				p.doWork(result)
+			}
 		}
+
 	}
 }
 
@@ -154,5 +165,26 @@ func (p *Pool) CreateOrdersTask(orders []string) {
 		}, taskID)
 		p.AddTask(task)
 	}
-	orders = nil
+}
+
+func (p *Pool) doWork(result []models.ExtRespOrder) {
+
+	// 1.Вызвать методы storage UpdateOrderStatus и метод кипера
+	// для группового обновления таблицы orders (поле статус)
+	err := p.storage.UpdateOrderStatus(result)
+	if err != nil {
+		//!!! перенести лог и сообщить что-то
+	}
+
+	// 2. Отобрать в массиве только структуры с accruel и вызвать
+	// метод storage InsertAccruel и метод кипера для добавления записей
+	// в savings_account
+
+	//!!! Здесь оставить только записи с полем accruel
+
+	err = p.storage.InsertAccruel(result)
+	if err != nil {
+		//!!! перенести лог и сообщить что-то
+	}
+
 }

@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/wurt83ow/gophermart/internal/models"
-	"github.com/wurt83ow/gophermart/internal/workerpool"
 )
 
 type ExtController struct {
@@ -16,7 +15,6 @@ type ExtController struct {
 }
 
 type Pool interface {
-	AddTask(*workerpool.Task)
 	AddResults(interface{})
 	GetResults() <-chan interface{}
 }
@@ -50,26 +48,3 @@ func (c *ExtController) GetOrder(order string) (models.ExtRespOrder, error) {
 
 	return respOrd, nil
 }
-
-// func (c *ExtController) ResultProcessing() {
-
-// 	t := time.NewTicker(10 * time.Second)
-// 	result := make([]interface{}, 0)
-// 	for {
-// 		select {
-// 		case job := <-c.pool.GetResults():
-// 			result = append(result, job)
-// 		case <-t.C:
-// 			if len(result) != 0 {
-// 				//!!! Создать и загрузить результат в массив структур
-// 				// 1.Вызвать методы  storage UpdateOrderStatus и метод кипера
-// 				// для группового обновления таблицы orders (поле статус)
-// 				// 2. Отобрать в массиве только структуры с accruel и вызвать
-// 				// метод storage InsertAccruel и метод кипера для добавления записей
-// 				// в savings_account
-
-// 				result = nil
-// 			}
-// 		}
-// 	}
-// }
