@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -324,6 +325,66 @@ func (bdk *BDKeeper) SaveUser(key string, data models.DataUser) (models.DataUser
 	}
 
 	return m, nil
+}
+
+func (bdk *BDKeeper) UpdateOrderStatus(result []models.ExtRespOrder) error {
+
+	ctx := context.Background()
+
+	valueStrings := make([]string, 0, len(result))
+	valueArgs := make([]interface{}, 0, len(result)*2)
+
+	for i, v := range result {
+		valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d)", i*2+1, i*2+2))
+		valueArgs = append(valueArgs, v.Order)
+		valueArgs = append(valueArgs, v.Status)
+	}
+
+	stmt := fmt.Sprintf(
+		`WITH _data (number, status) 
+		AS (VALUES %s)
+		UPDATE orders AS o
+		SET o.status = _data.status
+		FROM _data
+		WHERE o.number = _data.number`,
+		strings.Join(valueStrings, ","))
+	_, err := bdk.conn.ExecContext(ctx, stmt, valueArgs...)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (bdk *BDKeeper) InsertAccruel(result []models.ExtRespOrder) error {
+	ctx := context.Background()
+
+	valueStrings := make([]string, 0, len(result))
+	valueArgs := make([]interface{}, 0, len(result)*2)
+
+	for i, v := range result {
+		valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d)", i*2+1, i*2+2))
+		valueArgs = append(valueArgs, v.Order)
+		valueArgs = append(valueArgs, v.Accrual)
+	}
+
+	stmt := fmt.Sprintf(
+		`WITH _data (number, accrual) 
+			AS (VALUES %s)
+		INSERT INTO savings_account (user_id, processed_at, id_order_in,  accrual)
+		SELECT orders.user_id, current_timestamp, _data.number, _data.accrual   
+		FROM _data 
+		INNER JOIN orders 
+			ON _data.number = orders.number`,
+		strings.Join(valueStrings, ","))
+	_, err := bdk.conn.ExecContext(ctx, stmt, valueArgs...)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (bdk *BDKeeper) Ping() bool {

@@ -182,7 +182,13 @@ func (p *Pool) doWork(result []models.ExtRespOrder) {
 
 	//!!! Здесь оставить только записи с полем accruel
 
-	err = p.storage.InsertAccruel(result)
+	accruel := make([]models.ExtRespOrder, len(result))
+	for _, o := range result {
+		if o.Accrual != 0 {
+			accruel = append(accruel, o)
+		}
+	}
+	err = p.storage.InsertAccruel(accruel)
 	if err != nil {
 		//!!! перенести лог и сообщить что-то
 	}

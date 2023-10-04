@@ -30,22 +30,14 @@ type MemoryStorage struct {
 	log    Log
 }
 
-// UpdateOrderStatus implements workerpool.Storage.
-func (*MemoryStorage) UpdateOrderStatus(result []models.ExtRespOrder) error {
-	panic("unimplemented")
-}
-
-// InsertAccruel implements workerpool.Storage.
-func (*MemoryStorage) InsertAccruel(result []models.ExtRespOrder) error {
-	panic("unimplemented")
-}
-
 type Keeper interface {
 	LoadOrders() (StorageOrders, error)
 	LoadUsers() (StorageUsers, error)
 	SaveOrder(string, models.DataОrder) (models.DataОrder, error)
 	SaveUser(string, models.DataUser) (models.DataUser, error)
 	GetOpenOrders() ([]string, error)
+	UpdateOrderStatus(result []models.ExtRespOrder) error
+	InsertAccruel(result []models.ExtRespOrder) error
 	Ping() bool
 	Close() bool
 }
@@ -73,6 +65,14 @@ func NewMemoryStorage(keeper Keeper, log Log) *MemoryStorage {
 		keeper: keeper,
 		log:    log,
 	}
+}
+
+func (s *MemoryStorage) UpdateOrderStatus(result []models.ExtRespOrder) error {
+	return s.keeper.UpdateOrderStatus(result)
+}
+
+func (s *MemoryStorage) InsertAccruel(result []models.ExtRespOrder) error {
+	return s.keeper.InsertAccruel(result)
 }
 
 func (s *MemoryStorage) GetUser(k string) (models.DataUser, error) {
