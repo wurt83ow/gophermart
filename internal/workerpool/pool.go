@@ -3,10 +3,20 @@
 package workerpool
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/wurt83ow/gophermart/internal/models"
 )
+
+type External interface {
+	GetOrder(string) (models.ExtRespOrder, error)
+}
+type Storage interface {
+	GetOpenOrders() ([]string, error)
+}
 
 // Pool воркера
 type Pool struct {
@@ -18,16 +28,21 @@ type Pool struct {
 	runBackground chan bool
 	results       chan interface{}
 	wg            sync.WaitGroup
+	cancelFunc    context.CancelFunc
+	external      External
+	storage       Storage
 }
 
 // NewPool инициализирует новый пул с заданными задачами и
 
-func NewPool(tasks []*Task, concurrency int) *Pool {
+func NewPool(tasks []*Task, concurrency int, external External, storage Storage) *Pool {
 	return &Pool{
 		Tasks:       tasks,
 		concurrency: concurrency,
 		collector:   make(chan *Task, 1000),
 		results:     make(chan interface{}, 1000),
+		external:    external,
+		storage:     storage,
 	}
 }
 
@@ -81,6 +96,12 @@ func (p *Pool) RunBackground() {
 		p.collector <- p.Tasks[i]
 	}
 
+	ctx := context.Background()
+	ctx, canselFunc := context.WithCancel(ctx)
+	p.cancelFunc = canselFunc
+	p.wg.Add(1)
+	go p.UpdateOrders(ctx)
+
 	p.runBackground = make(chan bool)
 	<-p.runBackground
 }
@@ -90,5 +111,48 @@ func (p *Pool) Stop() {
 	for i := range p.Workers {
 		p.Workers[i].Stop()
 	}
+
+	p.cancelFunc()
+	p.wg.Wait()
+
 	p.runBackground <- true
+}
+
+func (p *Pool) UpdateOrders(ctx context.Context) {
+
+	t := time.NewTicker(10 * time.Second)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			orders, err := p.storage.GetOpenOrders()
+			if err != nil {
+				return
+			}
+			p.CreateOrdersTask(orders)
+		}
+	}
+}
+
+func (p *Pool) CreateOrdersTask(orders []string) {
+	var task *Task
+
+	for _, o := range orders {
+		taskID := o
+		task = NewTask(func(data interface{}) error {
+			order := data.(string)
+			orderdata, err := p.external.GetOrder(order)
+
+			if err != nil {
+				return err
+			}
+			fmt.Printf("Task %s processed\n", order)
+			p.AddResults(orderdata)
+			return nil
+		}, taskID)
+		p.AddTask(task)
+	}
+	orders = nil
 }

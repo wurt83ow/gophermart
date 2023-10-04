@@ -1,7 +1,6 @@
 package app
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/go-chi/chi"
@@ -33,11 +32,10 @@ func Run() error {
 
 	memoryStorage := storage.NewMemoryStorage(keeper, nLogger)
 
+	extcontr := controllers.NewExtController(memoryStorage, nLogger)
+
 	var allTask []*workerpool.Task
-	pool := workerpool.NewPool(allTask, 10) //!!! вынести в config кол. воркеров
-	extcontr := controllers.NewExtController(memoryStorage, pool, nLogger)
-	ctx := context.Background()
-	extcontr.Start(ctx)
+	pool := workerpool.NewPool(allTask, 10, extcontr, memoryStorage) //!!! вынести в config кол. воркеров
 
 	authz := authz.NewJWTAuthz(option.JWTSigningKey(), nLogger)
 	basecontr := controllers.NewBaseController(memoryStorage, option, nLogger, authz)
