@@ -3,6 +3,7 @@ package controllers
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -226,6 +227,8 @@ func (h *BaseController) createOrder(w http.ResponseWriter, r *http.Request) {
 	order, err := h.storage.InsertOrder(orderNum, models.DataОrder{
 		Number: orderNum, Date: curDate, Status: status, UserID: userID})
 
+	fmt.Println("3333333333333333333", order)
+	fmt.Println("4444444444444444444", time.Now())
 	if err != nil {
 		if err == storage.ErrConflict {
 			// The order number has already been uploaded
@@ -266,6 +269,7 @@ func (h *BaseController) getUserOrders(w http.ResponseWriter, r *http.Request) {
 	}
 
 	orders := h.storage.GetUserOrders(userID)
+
 	if len(orders) == 0 {
 		// no information to answer
 		w.WriteHeader(http.StatusNoContent) // 204
@@ -281,6 +285,9 @@ func (h *BaseController) getUserOrders(w http.ResponseWriter, r *http.Request) {
 		h.log.Info("Internal Server Error: ", zap.Error(err))
 		return
 	}
+
+	fmt.Println("7777777777777777777", orders)
+	fmt.Println("8888888888888888888", time.Now())
 	w.WriteHeader(http.StatusOK) //code 200
 }
 

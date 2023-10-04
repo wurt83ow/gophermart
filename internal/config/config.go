@@ -6,10 +6,11 @@ import (
 )
 
 type Options struct {
-	flagRunAddr       string
-	flagLogLevel      string
-	flagDataBaseDSN   string
-	flagJWTSigningKey string
+	flagRunAddr              string
+	flagLogLevel             string
+	flagDataBaseDSN          string
+	flagJWTSigningKey        string
+	flagAccrualSystemAddress string
 }
 
 func NewOptions() *Options {
@@ -23,6 +24,7 @@ func (o *Options) ParseFlags() {
 	regStringVar(&o.flagLogLevel, "l", "info", "log level")
 	regStringVar(&o.flagDataBaseDSN, "d", "", "")
 	regStringVar(&o.flagJWTSigningKey, "j", "test_key", "jwt signing key")
+	regStringVar(&o.flagAccrualSystemAddress, "r", ":8082", "acrual system address")
 
 	// parse the arguments passed to the server into registered variables
 	flag.Parse()
@@ -37,6 +39,10 @@ func (o *Options) ParseFlags() {
 
 	if envDataBaseDSN := os.Getenv("DATABASE_URI"); envDataBaseDSN != "" {
 		o.flagDataBaseDSN = envDataBaseDSN
+	}
+
+	if envAccrualSystemAddress := os.Getenv("ACCRUAL_SYSTEM_ADDRESS"); envAccrualSystemAddress != "" {
+		o.flagAccrualSystemAddress = envAccrualSystemAddress
 	}
 
 	if envJWTSigningKey := os.Getenv("JWT_SIGNING_KEY"); envJWTSigningKey != "" {
@@ -54,6 +60,10 @@ func (o *Options) LogLevel() string {
 
 func (o *Options) DataBaseDSN() string {
 	return getStringFlag("d")
+}
+
+func (o *Options) AccrualSystemAddress() string {
+	return getStringFlag("r")
 }
 
 func (o *Options) JWTSigningKey() string {

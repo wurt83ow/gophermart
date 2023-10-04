@@ -12,6 +12,7 @@ import (
 type ExtController struct {
 	storage Storage
 	log     Log
+	extAddr func() string
 }
 
 type Pool interface {
@@ -19,16 +20,22 @@ type Pool interface {
 	GetResults() <-chan interface{}
 }
 
-func NewExtController(storage Storage, log Log) *ExtController {
+func NewExtController(storage Storage, extAddr func() string, log Log) *ExtController {
 	return &ExtController{
 		storage: storage,
 		log:     log,
+		extAddr: extAddr,
 	}
 }
 
 func (c *ExtController) GetOrder(order string) (models.ExtRespOrder, error) {
 
-	url := "http://localhost:8082/api/orders/" + order // !!! прокинуть config
+	addr := c.extAddr()
+	if string(addr[len(addr)-1]) != "/" {
+		addr = addr + "/"
+	}
+
+	url := addr + "api/orders/" + order
 
 	resp, err := http.Get(url)
 	if err != nil {

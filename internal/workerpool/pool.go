@@ -84,7 +84,7 @@ func (p *Pool) RunBackground() {
 	go func() {
 		for {
 			fmt.Print("⌛ Waiting for tasks to come in ...\n")
-			time.Sleep(10 * time.Second)
+			time.Sleep(1 * time.Second)
 		}
 	}()
 
@@ -122,16 +122,22 @@ func (p *Pool) Stop() {
 
 func (p *Pool) UpdateOrders(ctx context.Context) {
 
-	t := time.NewTicker(10 * time.Second)
+	t := time.NewTicker(1 * time.Second)
 
 	result := make([]models.ExtRespOrder, 0)
+
+	var dmx sync.RWMutex
+	dmx.RLock()
+	defer dmx.Unlock()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case job := <-p.results:
+
 			result = append(result, job.(models.ExtRespOrder))
+
 		case <-t.C:
 			orders, err := p.storage.GetOpenOrders()
 			if err != nil {
@@ -159,6 +165,7 @@ func (p *Pool) CreateOrdersTask(orders []string) {
 			if err != nil {
 				return err
 			}
+
 			fmt.Printf("Task %s processed\n", order)
 			p.AddResults(orderdata)
 			return nil

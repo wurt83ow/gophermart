@@ -96,6 +96,7 @@ func (bdk *BDKeeper) GetOpenOrders() ([]string, error) {
 	FROM public.orders
 	WHERE status <> 'INVALID'
 	AND status <> 'PROCESSED'
+	AND number <> ''
 	LIMIT 100
 	`)
 
@@ -107,13 +108,21 @@ func (bdk *BDKeeper) GetOpenOrders() ([]string, error) {
 
 	orders := make([]string, 0)
 	for rows.Next() {
+		record := models.BDOrder{}
 
-		var order string
-		err := rows.Scan(order)
+		s := reflect.ValueOf(&record).Elem()
+		numCols := s.NumField()
+		columns := make([]interface{}, numCols)
+		for i := 0; i < numCols; i++ {
+			field := s.Field(i)
+			columns[i] = field.Addr().Interface()
+		}
+
+		err := rows.Scan(columns...)
 		if err != nil {
 			log.Fatal(err)
 		}
-		orders = append(orders, order)
+		orders = append(orders, record.Order)
 	}
 
 	if err = rows.Err(); err != nil {
@@ -328,7 +337,6 @@ func (bdk *BDKeeper) SaveUser(key string, data models.DataUser) (models.DataUser
 }
 
 func (bdk *BDKeeper) UpdateOrderStatus(result []models.ExtRespOrder) error {
-
 	ctx := context.Background()
 
 	valueStrings := make([]string, 0, len(result))
@@ -343,10 +351,10 @@ func (bdk *BDKeeper) UpdateOrderStatus(result []models.ExtRespOrder) error {
 	stmt := fmt.Sprintf(
 		`WITH _data (number, status) 
 		AS (VALUES %s)
-		UPDATE orders AS o
-		SET o.status = _data.status
+		UPDATE orders 
+		SET status = CAST(_data.status AS statuses) 
 		FROM _data
-		WHERE o.number = _data.number`,
+		WHERE orders.number = _data.number`,
 		strings.Join(valueStrings, ","))
 	_, err := bdk.conn.ExecContext(ctx, stmt, valueArgs...)
 
@@ -388,7 +396,7 @@ func (bdk *BDKeeper) InsertAccruel(result []models.ExtRespOrder) error {
 }
 
 func (bdk *BDKeeper) Ping() bool {
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Microsecond)
 	defer cancel()
 
 	if err := bdk.conn.PingContext(ctx); err != nil {

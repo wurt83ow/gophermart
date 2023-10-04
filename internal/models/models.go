@@ -31,7 +31,11 @@ type ResponseUser struct {
 }
 
 type ExtRespOrder struct {
-	Order   string  `json:"order"`
-	Status  string  `json:"status"`
-	Accrual float64 `json:"accrual,omitempty"`
+	Order   string  `db:"order" json:"order"`
+	Status  string  `db:"status" json:"status"`
+	Accrual float64 `db:"accrual" json:"accrual,omitempty"`
+}
+
+type BDOrder struct {
+	Order string `db:"order" `
 }

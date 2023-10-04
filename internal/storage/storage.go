@@ -131,12 +131,11 @@ func (s *MemoryStorage) InsertUser(k string,
 func (s *MemoryStorage) GetUserOrders(userID string) []models.DataОrder {
 	var orders []models.DataОrder
 
-	s.omx.RLock()
-	defer s.omx.RUnlock()
+	s.omx.Lock()
+	defer s.omx.Unlock()
 
 	for _, o := range s.orders {
 		if o.UserID == userID {
-
 			orders = append(orders, models.DataОrder{
 				Number: o.Number, Status: o.Status, Accrual: o.Accrual, Date: o.Date,
 				DateRFC: o.Date.Format(time.RFC3339)})
