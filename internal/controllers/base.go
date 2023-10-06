@@ -3,7 +3,6 @@ package controllers
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -71,6 +70,7 @@ func NewBaseController(storage Storage, options Options, log Log, authz Authz) *
 
 func (h *BaseController) Route() *chi.Mux {
 	r := chi.NewRouter()
+
 	r.Post("/api/user/register", h.Register)
 	r.Post("/api/user/login", h.Login)
 	r.Get("/ping", h.getPing)
@@ -95,6 +95,11 @@ func (h *BaseController) Register(w http.ResponseWriter, r *http.Request) {
 		h.log.Info("cannot decode request JSON body: ", zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest) // code 400
 		return
+	}
+
+	if len(regReq.Email) == 0 || len(regReq.Password) == 0 {
+		h.log.Info("login or password was not received")
+		w.WriteHeader(http.StatusBadRequest) // code 400
 	}
 
 	_, err := h.storage.GetUser(regReq.Email)
@@ -227,8 +232,6 @@ func (h *BaseController) createOrder(w http.ResponseWriter, r *http.Request) {
 	order, err := h.storage.InsertOrder(orderNum, models.DataОrder{
 		Number: orderNum, Date: curDate, Status: status, UserID: userID})
 
-	fmt.Println("3333333333333333333", order)
-	fmt.Println("4444444444444444444", time.Now())
 	if err != nil {
 		if err == storage.ErrConflict {
 			// The order number has already been uploaded
@@ -252,12 +255,14 @@ func (h *BaseController) createOrder(w http.ResponseWriter, r *http.Request) {
 
 	// new order number accepted for processing
 	w.WriteHeader(http.StatusAccepted) //code 202
+
 }
 
 // GET
 func (h *BaseController) getUserOrders(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
+	// w.Header().Set("Content-Encoding", "gzip")
 	metod := zap.String("method", r.Method)
 
 	userID, ok := r.Context().Value(keyUserID).(string)
@@ -269,6 +274,12 @@ func (h *BaseController) getUserOrders(w http.ResponseWriter, r *http.Request) {
 	}
 
 	orders := h.storage.GetUserOrders(userID)
+
+	// var orders []models.DataОrder
+
+	// orders = append(orders, models.DataОrder{
+	// 	Number: "654426660142", Status: "PROCESSED", Accrual: 0, Date: time.Now(),
+	// 	DateRFC: time.Now().Format(time.RFC3339)})
 
 	if len(orders) == 0 {
 		// no information to answer
@@ -286,9 +297,7 @@ func (h *BaseController) getUserOrders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println("7777777777777777777", orders)
-	fmt.Println("8888888888888888888", time.Now())
-	w.WriteHeader(http.StatusOK) //code 200
+	// w.WriteHeader(http.StatusOK) //code 200
 }
 
 // GET

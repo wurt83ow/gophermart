@@ -365,26 +365,32 @@ func (bdk *BDKeeper) UpdateOrderStatus(result []models.ExtRespOrder) error {
 	return nil
 }
 
-func (bdk *BDKeeper) InsertAccruel(result []models.ExtRespOrder) error {
+func (bdk *BDKeeper) InsertAccruel(orders map[string]models.ExtRespOrder) error {
 	ctx := context.Background()
 
-	valueStrings := make([]string, 0, len(result))
-	valueArgs := make([]interface{}, 0, len(result)*2)
+	valueStrings := make([]string, 0, len(orders))
+	valueArgs := make([]interface{}, 0, len(orders)*2)
 
-	for i, v := range result {
+	i := 0
+	for _, v := range orders {
 		valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d)", i*2+1, i*2+2))
 		valueArgs = append(valueArgs, v.Order)
-		valueArgs = append(valueArgs, v.Accrual)
+		valueArgs = append(valueArgs, fmt.Sprintf("%f", v.Accrual))
+		i++
 	}
 
 	stmt := fmt.Sprintf(
 		`WITH _data (number, accrual) 
 			AS (VALUES %s)
 		INSERT INTO savings_account (user_id, processed_at, id_order_in,  accrual)
-		SELECT orders.user_id, current_timestamp, _data.number, _data.accrual   
+		SELECT orders.user_id, current_timestamp, _data.number, to_number(_data.accrual, '9G999.99') 
 		FROM _data 
 		INNER JOIN orders 
-			ON _data.number = orders.number`,
+			ON _data.number = orders.number
+		LEFT JOIN savings_account AS SA 
+			ON _data.number = SA.id_order_in
+				AND SA.id_order_out IS NULL
+		WHERE SA.id_order_in IS NULL`,
 		strings.Join(valueStrings, ","))
 	_, err := bdk.conn.ExecContext(ctx, stmt, valueArgs...)
 

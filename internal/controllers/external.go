@@ -28,7 +28,7 @@ func NewExtController(storage Storage, extAddr func() string, log Log) *ExtContr
 	}
 }
 
-func (c *ExtController) GetOrder(order string) (models.ExtRespOrder, error) {
+func (c *ExtController) GetExtOrderAccruel(order string) (models.ExtRespOrder, error) {
 
 	addr := c.extAddr()
 	if string(addr[len(addr)-1]) != "/" {

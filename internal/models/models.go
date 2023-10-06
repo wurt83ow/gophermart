@@ -10,7 +10,7 @@ type DataОrder struct {
 	Status  string    `db:"status" json:"status"`
 	Date    time.Time `db:"date" json:"-"`
 	DateRFC string    `db:"date_rfc" json:"uploaded_at"`
-	Accrual float64   `db:"accrual" json:"accrual,omitempty"`
+	Accrual float32   `db:"accrual" json:"accrual,omitempty"`
 	UserID  string    `db:"user_id" json:"-"`
 }
 
@@ -33,7 +33,7 @@ type ResponseUser struct {
 type ExtRespOrder struct {
 	Order   string  `db:"order" json:"order"`
 	Status  string  `db:"status" json:"status"`
-	Accrual float64 `db:"accrual" json:"accrual,omitempty"`
+	Accrual float32 `db:"accrual" json:"accrual,omitempty"`
 }
 
 type BDOrder struct {

@@ -37,7 +37,7 @@ type Keeper interface {
 	SaveUser(string, models.DataUser) (models.DataUser, error)
 	GetOpenOrders() ([]string, error)
 	UpdateOrderStatus(result []models.ExtRespOrder) error
-	InsertAccruel(result []models.ExtRespOrder) error
+	InsertAccruel(map[string]models.ExtRespOrder) error
 	Ping() bool
 	Close() bool
 }
@@ -68,14 +68,36 @@ func NewMemoryStorage(keeper Keeper, log Log) *MemoryStorage {
 }
 
 func (s *MemoryStorage) UpdateOrderStatus(result []models.ExtRespOrder) error {
-	return s.keeper.UpdateOrderStatus(result)
+	err := s.keeper.UpdateOrderStatus(result)
+	if err != nil {
+		return err
+	}
+
+	for _, v := range result {
+		o, exists := s.orders[v.Order]
+
+		if exists {
+			s.orders[v.Order] = models.DataОrder{
+				UUID:    o.UUID,
+				Number:  o.Number,
+				Status:  v.Status,
+				Date:    o.Date,
+				DateRFC: o.DateRFC,
+				Accrual: v.Accrual,
+				UserID:  o.UserID,
+			}
+		}
+	}
+
+	return nil
 }
 
-func (s *MemoryStorage) InsertAccruel(result []models.ExtRespOrder) error {
-	return s.keeper.InsertAccruel(result)
+func (s *MemoryStorage) InsertAccruel(orders map[string]models.ExtRespOrder) error {
+	return s.keeper.InsertAccruel(orders)
 }
 
 func (s *MemoryStorage) GetUser(k string) (models.DataUser, error) {
+
 	s.umx.RLock()
 	defer s.umx.RUnlock()
 
@@ -129,17 +151,21 @@ func (s *MemoryStorage) InsertUser(k string,
 }
 
 func (s *MemoryStorage) GetUserOrders(userID string) []models.DataОrder {
-	var orders []models.DataОrder
+	// var orders []models.DataОrder
+	orders := make([]models.DataОrder, 0)
 
-	s.omx.Lock()
-	defer s.omx.Unlock()
+	s.omx.RLock()
+	defer s.omx.RUnlock()
 
 	for _, o := range s.orders {
-		if o.UserID == userID {
-			orders = append(orders, models.DataОrder{
-				Number: o.Number, Status: o.Status, Accrual: o.Accrual, Date: o.Date,
-				DateRFC: o.Date.Format(time.RFC3339)})
+		if o.UserID != userID {
+			continue
 		}
+
+		o.DateRFC = o.Date.Format(time.RFC3339)
+		// o.Accrual = 0
+		// o.Status = "PROCESSED"
+		orders = append(orders, o)
 	}
 
 	sort.SliceStable(orders, func(i, j int) bool {
@@ -152,6 +178,15 @@ func (s *MemoryStorage) GetUserOrders(userID string) []models.DataОrder {
 func (s *MemoryStorage) SaveOrder(k string, v models.DataОrder) (models.DataОrder, error) {
 	if s.keeper == nil {
 		return v, nil
+	}
+
+	s.umx.RLock()
+	defer s.umx.RUnlock()
+
+	nv, exists := s.orders[k]
+
+	if exists {
+		return nv, nil
 	}
 
 	return s.keeper.SaveOrder(k, v)

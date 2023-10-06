@@ -12,12 +12,12 @@ import (
 )
 
 type External interface {
-	GetOrder(string) (models.ExtRespOrder, error)
+	GetExtOrderAccruel(string) (models.ExtRespOrder, error)
 }
 type Storage interface {
 	GetOpenOrders() ([]string, error)
 	UpdateOrderStatus([]models.ExtRespOrder) error
-	InsertAccruel([]models.ExtRespOrder) error
+	InsertAccruel(map[string]models.ExtRespOrder) error
 }
 
 // Pool воркера
@@ -84,7 +84,7 @@ func (p *Pool) RunBackground() {
 	go func() {
 		for {
 			fmt.Print("⌛ Waiting for tasks to come in ...\n")
-			time.Sleep(1 * time.Second)
+			time.Sleep(3 * time.Second)
 		}
 	}()
 
@@ -122,13 +122,13 @@ func (p *Pool) Stop() {
 
 func (p *Pool) UpdateOrders(ctx context.Context) {
 
-	t := time.NewTicker(1 * time.Second)
+	t := time.NewTicker(3 * time.Second)
 
 	result := make([]models.ExtRespOrder, 0)
 
 	var dmx sync.RWMutex
 	dmx.RLock()
-	defer dmx.Unlock()
+	defer dmx.RUnlock()
 
 	for {
 		select {
@@ -147,6 +147,7 @@ func (p *Pool) UpdateOrders(ctx context.Context) {
 
 			if len(result) != 0 {
 				p.doWork(result)
+				result = nil
 			}
 		}
 
@@ -160,7 +161,7 @@ func (p *Pool) CreateOrdersTask(orders []string) {
 		taskID := o
 		task = NewTask(func(data interface{}) error {
 			order := data.(string)
-			orderdata, err := p.external.GetOrder(order)
+			orderdata, err := p.external.GetExtOrderAccruel(order)
 
 			if err != nil {
 				return err
@@ -181,23 +182,29 @@ func (p *Pool) doWork(result []models.ExtRespOrder) {
 	err := p.storage.UpdateOrderStatus(result)
 	if err != nil {
 		//!!! перенести лог и сообщить что-то
+		fmt.Println("7777777777777777777777777777777777", err)
 	}
 
 	// 2. Отобрать в массиве только структуры с accruel и вызвать
 	// метод storage InsertAccruel и метод кипера для добавления записей
 	// в savings_account
 
-	//!!! Здесь оставить только записи с полем accruel
+	var dmx sync.RWMutex
 
-	accruel := make([]models.ExtRespOrder, len(result))
+	//!!! Здесь оставить только записи с полем accruel
+	orders := make(map[string]models.ExtRespOrder, 0)
 	for _, o := range result {
 		if o.Accrual != 0 {
-			accruel = append(accruel, o)
+			dmx.RLock()
+			orders[o.Order] = o
+			dmx.RUnlock()
 		}
 	}
-	err = p.storage.InsertAccruel(accruel)
+
+	err = p.storage.InsertAccruel(orders)
 	if err != nil {
 		//!!! перенести лог и сообщить что-то
+		fmt.Println("7777777777777777777777777777777777", err)
 	}
 
 }
