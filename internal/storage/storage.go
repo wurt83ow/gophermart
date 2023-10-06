@@ -180,15 +180,6 @@ func (s *MemoryStorage) SaveOrder(k string, v models.DataОrder) (models.DataОr
 		return v, nil
 	}
 
-	s.umx.RLock()
-	defer s.umx.RUnlock()
-
-	nv, exists := s.orders[k]
-
-	if exists {
-		return nv, nil
-	}
-
 	return s.keeper.SaveOrder(k, v)
 }
 
