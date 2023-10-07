@@ -29,6 +29,7 @@ type Storage interface {
 	GetUser(k string) (models.DataUser, error)
 	GetUserOrders(userID string) []models.DataОrder
 	GetOpenOrders() ([]string, error)
+	ExecuteWithdraw(models.RequestWithdraw) error
 	SaveOrder(k string, v models.DataОrder) (models.DataОrder, error)
 	SaveUser(k string, v models.DataUser) (models.DataUser, error)
 	GetBaseConnection() bool
@@ -81,7 +82,7 @@ func (h *BaseController) Route() *chi.Mux {
 
 		r.Post("/api/user/orders", h.createOrder)
 		r.Get("/api/user/orders", h.getUserOrders)
-
+		r.Post("/api/user/balance/withdraw", h.ExecuteWithdraw)
 	})
 
 	return r
@@ -193,6 +194,35 @@ func (h *BaseController) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 // POST
+func (h *BaseController) ExecuteWithdraw(w http.ResponseWriter, r *http.Request) {
+	metod := zap.String("method", r.Method)
+
+	userID, StatusOK := r.Context().Value(keyUserID).(string)
+	if !StatusOK || userID == "" {
+		// user is not authenticated
+		w.WriteHeader(http.StatusUnauthorized) //code 401
+		h.log.Info("user is not authenticated, request status 401: ", metod)
+		return
+	}
+
+	regReq := models.RequestWithdraw{}
+	dec := json.NewDecoder(r.Body)
+	if err := dec.Decode(&regReq); err != nil {
+		h.log.Info("cannot decode request JSON body: ", zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError) // code 500
+		return
+	}
+	regReq.UserID = userID
+	err := h.storage.ExecuteWithdraw(regReq)
+	if err != nil {
+		return
+	}
+	// new order number accepted for processing
+	w.WriteHeader(http.StatusOK) //code 200
+
+}
+
+// POST
 func (h *BaseController) createOrder(w http.ResponseWriter, r *http.Request) {
 	metod := zap.String("method", r.Method)
 
@@ -274,12 +304,6 @@ func (h *BaseController) getUserOrders(w http.ResponseWriter, r *http.Request) {
 	}
 
 	orders := h.storage.GetUserOrders(userID)
-
-	// var orders []models.DataОrder
-
-	// orders = append(orders, models.DataОrder{
-	// 	Number: "654426660142", Status: "PROCESSED", Accrual: 0, Date: time.Now(),
-	// 	DateRFC: time.Now().Format(time.RFC3339)})
 
 	if len(orders) == 0 {
 		// no information to answer

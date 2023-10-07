@@ -14,6 +14,14 @@ type DataОrder struct {
 	UserID  string    `db:"user_id" json:"-"`
 }
 
+type DataОrderBD struct {
+	UserID      string    `db:"user_id" json:"-"`
+	Number      string    `db:"number" json:"number"`
+	Date        time.Time `db:"date" json:"-"`
+	Accrual     float32   `db:"accrual" json:"accrual,omitempty"`
+	UserAccrual float32   `db:"user_accrual" json:"user_accrual,omitempty"`
+}
+
 type DataUser struct {
 	UUID  string `db:"id" json:"id"`
 	Name  string `db:"name" json:"name"`
@@ -38,4 +46,14 @@ type ExtRespOrder struct {
 
 type BDOrder struct {
 	Order string `db:"order" `
+}
+
+type BDAccrual struct {
+	Accrual float32 `db:"accrual" json:"accrual,omitempty"`
+}
+
+type RequestWithdraw struct {
+	UserID string  `db:"user_id" json:"user_id"`
+	Order  string  `db:"order" json:"order"`
+	Sum    float32 `db:"sum" json:"sum"`
 }

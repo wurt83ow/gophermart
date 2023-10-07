@@ -38,6 +38,7 @@ type Keeper interface {
 	GetOpenOrders() ([]string, error)
 	UpdateOrderStatus(result []models.ExtRespOrder) error
 	InsertAccruel(map[string]models.ExtRespOrder) error
+	ExecuteWithdraw(models.RequestWithdraw) error
 	Ping() bool
 	Close() bool
 }
@@ -173,6 +174,10 @@ func (s *MemoryStorage) GetUserOrders(userID string) []models.DataОrder {
 	})
 
 	return orders
+}
+
+func (s *MemoryStorage) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
+	return s.keeper.ExecuteWithdraw(withdraw)
 }
 
 func (s *MemoryStorage) SaveOrder(k string, v models.DataОrder) (models.DataОrder, error) {

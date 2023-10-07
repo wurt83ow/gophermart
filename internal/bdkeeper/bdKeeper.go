@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"reflect"
 	"strings"
@@ -144,7 +145,7 @@ func (bdk *BDKeeper) LoadOrders() (storage.StorageOrders, error) {
 		o.date,
 		'' AS date_rfc,				
 		COALESCE(s.accrual, 0) AS accrual,
-		o.user_id	
+		o.user_id 
 	FROM orders AS o
 	LEFT JOIN savings_account AS s 
 	ON o.id = s.id_order_in
@@ -334,6 +335,146 @@ func (bdk *BDKeeper) SaveUser(key string, data models.DataUser) (models.DataUser
 	}
 
 	return m, nil
+}
+
+func (bdk *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
+	ctx := context.Background()
+
+	// запускаем транзакцию
+	tx, err := bdk.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	// в случае неуспешного коммита все изменения транзакции будут отменены
+	defer tx.Rollback()
+	stmt := `
+		WITH _orders AS ( 
+			SELECT * 
+			FROM orders 
+			WHERE  user_id = $1
+			FOR UPDATE)
+		SELECT 
+			sa.user_id,
+			sa.id_order_in AS number,	 
+			_orders.date AS date,
+			SUM(sa.accrual) AS accrual,
+			nq.user_accrual 
+		FROM savings_account AS sa
+		INNER JOIN _orders AS _orders
+			ON sa.id_order_in = _orders.number
+		INNER JOIN (
+				SELECT 
+					user_id, 
+					SUM(accrual) AS user_accrual 
+				FROM savings_account 
+				WHERE  user_id = $1
+				GROUP BY user_id) AS nq
+			ON nq.user_id = sa.user_id
+		WHERE sa.user_id = $1
+		GROUP BY 
+			sa.user_id,	
+			sa.id_order_in, 
+			_orders.date,
+			nq.user_accrual	  
+		ORDER BY _orders.date ASC`
+	Args := []interface{}{withdraw.UserID}
+	rows, err := tx.QueryContext(ctx, stmt, Args...)
+
+	if err != nil {
+		fmt.Println("8sssssssssssssssssss7sssssss", err)
+		return err
+	}
+
+	defer rows.Close()
+
+	valueStrings := make([]string, 0)
+	valueArgs := make([]interface{}, 0)
+
+	leftWrite := withdraw.Sum
+	idx := 0
+	for rows.Next() {
+		if leftWrite <= 0 {
+			break
+		}
+		rec := models.DataОrderBD{}
+
+		s := reflect.ValueOf(&rec).Elem()
+		numCols := s.NumField()
+
+		columns := make([]interface{}, numCols)
+
+		for i := 0; i < numCols; i++ {
+			field := s.Field(i)
+			columns[i] = field.Addr().Interface()
+		}
+
+		err := rows.Scan(columns...)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if rec.UserAccrual < withdraw.Sum {
+			fmt.Println("Нужно списать: ", withdraw.Sum, " Всего у пользователя: ", rec.UserAccrual)
+			return errors.New("//!!! Здесь должна быть моя ошибка!")
+		}
+
+		accrual := float32(math.Min(float64(leftWrite), float64(rec.Accrual)))
+		leftWrite -= accrual
+
+		valueStrings = append(valueStrings,
+			fmt.Sprintf("($%d, $%d, $%d, $%d, $%d)",
+				idx*5+1, idx*5+2, idx*5+3, idx*5+4, idx*5+5))
+		valueArgs = append(valueArgs, withdraw.UserID)
+		valueArgs = append(valueArgs, time.Now())
+		valueArgs = append(valueArgs, rec.Number)
+		valueArgs = append(valueArgs, withdraw.Order)
+		valueArgs = append(valueArgs, -accrual)
+
+		idx++
+	}
+
+	stmt = fmt.Sprintf(
+		`INSERT INTO savings_account (
+				user_id,
+				processed_at,
+				id_order_in,
+				id_order_out,
+				accrual)
+			VALUES %s`,
+		strings.Join(valueStrings, ","))
+	_, err = bdk.conn.ExecContext(ctx, stmt, valueArgs...)
+
+	fmt.Println("77777777777777777777777", valueStrings)
+	fmt.Println("88888888888888888888888", valueArgs)
+	fmt.Println("88888888888888888888888", stmt)
+	if err != nil {
+		fmt.Println("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", err)
+		return err
+	}
+
+	row := bdk.conn.QueryRowContext(ctx,
+		`SELECT SUM(accrual) AS accrual
+		FROM savings_account 
+		WHERE user_id = $1`,
+		withdraw.UserID)
+
+	// read the values from the database record into the corresponding fields of the structure
+
+	var m models.BDAccrual
+	err = row.Scan(&m.Accrual)
+	fmt.Println("текущий остаток", m.Accrual)
+	if err != nil {
+		fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", err)
+		return err
+	}
+
+	if m.Accrual < 0 {
+		return errors.New("//!!! Здесь должна быть моя ошибка про нехватку остатка!")
+	}
+
+	// коммитим транзакцию
+	return tx.Commit()
 }
 
 func (bdk *BDKeeper) UpdateOrderStatus(result []models.ExtRespOrder) error {
