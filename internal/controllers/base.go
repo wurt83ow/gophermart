@@ -3,6 +3,7 @@ package controllers
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -28,6 +29,7 @@ type Storage interface {
 	InsertUser(k string, v models.DataUser) (models.DataUser, error)
 	GetUser(k string) (models.DataUser, error)
 	GetUserOrders(userID string) []models.DataОrder
+	GetUserBalance(userID string) (models.DataBalance, error)
 	GetOpenOrders() ([]string, error)
 	ExecuteWithdraw(models.RequestWithdraw) error
 	SaveOrder(k string, v models.DataОrder) (models.DataОrder, error)
@@ -82,7 +84,9 @@ func (h *BaseController) Route() *chi.Mux {
 
 		r.Post("/api/user/orders", h.createOrder)
 		r.Get("/api/user/orders", h.getUserOrders)
+		r.Get("/api/user/balance", h.GetUserBalance)
 		r.Post("/api/user/balance/withdraw", h.ExecuteWithdraw)
+
 	})
 
 	return r
@@ -212,6 +216,7 @@ func (h *BaseController) ExecuteWithdraw(w http.ResponseWriter, r *http.Request)
 		w.WriteHeader(http.StatusInternalServerError) // code 500
 		return
 	}
+	fmt.Println("8888888888888888888888888888888888888_withdraw_query", regReq)
 	regReq.UserID = userID
 	err := h.storage.ExecuteWithdraw(regReq)
 	if err != nil {
@@ -315,6 +320,38 @@ func (h *BaseController) getUserOrders(w http.ResponseWriter, r *http.Request) {
 	// serialize the server response
 	enc := json.NewEncoder(w)
 	if err := enc.Encode(orders); err != nil {
+		// Internal Server Error
+		w.WriteHeader(http.StatusInternalServerError) //code 500
+		h.log.Info("Internal Server Error: ", zap.Error(err))
+		return
+	}
+
+	// w.WriteHeader(http.StatusOK) //code 200
+}
+
+// GET
+func (h *BaseController) GetUserBalance(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+	// w.Header().Set("Content-Encoding", "gzip")
+	metod := zap.String("method", r.Method)
+
+	userID, ok := r.Context().Value(keyUserID).(string)
+	if !ok || len(userID) == 0 {
+		// user is not authorized
+		w.WriteHeader(http.StatusUnauthorized) //401
+		h.log.Info("user is not authenticated, request status 401: ", metod)
+		return
+	}
+
+	balance, err := h.storage.GetUserBalance(userID)
+	if err != nil {
+		//!!! Что здесь?
+	}
+
+	// serialize the server response
+	enc := json.NewEncoder(w)
+	if err := enc.Encode(balance); err != nil {
 		// Internal Server Error
 		w.WriteHeader(http.StatusInternalServerError) //code 500
 		h.log.Info("Internal Server Error: ", zap.Error(err))

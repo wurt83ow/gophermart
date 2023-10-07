@@ -29,6 +29,11 @@ type DataUser struct {
 	Hash  []byte `db:"name" json:"hash"`
 }
 
+type DataBalance struct {
+	Current   float32 `db:"current" json:"current"`
+	Withdrawn float32 `db:"withdrawn" json:"withdrawn"`
+}
+
 type RequestUser struct {
 	Email    string `json:"login"`
 	Password string `json:"password"`

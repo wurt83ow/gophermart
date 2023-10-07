@@ -88,6 +88,37 @@ func NewBDKeeper(dsn func() string, log Log) *BDKeeper {
 	}
 }
 
+func (bdk *BDKeeper) GetUserBalance(userID string) (models.DataBalance, error) {
+	ctx := context.Background()
+	row := bdk.conn.QueryRowContext(ctx, `
+	SELECT SUM(sq.current) AS current, 
+	-SUM(sq.withdrawn)AS withdrawn 
+	FROM 
+		(SELECT 
+		SUM(accrual) current, 
+		0 withdrawn
+		FROM  savings_account
+		WHERE user_id = $1 
+		UNION
+		SELECT 
+		0,
+		SUM(accrual)
+		FROM  savings_account
+		WHERE user_id = $1 AND accrual < 0) AS sq`,
+		userID,
+	)
+
+	// read the values from the database record into the corresponding fields of the structure
+	var m models.DataBalance
+	err := row.Scan(&m.Current, &m.Withdrawn)
+	if err != nil {
+		bdk.log.Info("row scan error: ", zap.Error(err))
+		return models.DataBalance{}, err
+	}
+
+	return m, err
+}
+
 func (bdk *BDKeeper) GetOpenOrders() ([]string, error) {
 	ctx := context.Background()
 
@@ -508,6 +539,7 @@ func (bdk *BDKeeper) UpdateOrderStatus(result []models.ExtRespOrder) error {
 func (bdk *BDKeeper) InsertAccruel(orders map[string]models.ExtRespOrder) error {
 	ctx := context.Background()
 
+	fmt.Println("2222222222222222222222222222222222_InsertAccruel", orders)
 	valueStrings := make([]string, 0, len(orders))
 	valueArgs := make([]interface{}, 0, len(orders)*2)
 
@@ -523,7 +555,7 @@ func (bdk *BDKeeper) InsertAccruel(orders map[string]models.ExtRespOrder) error 
 		`WITH _data (number, accrual) 
 			AS (VALUES %s)
 		INSERT INTO savings_account (user_id, processed_at, id_order_in,  accrual)
-		SELECT orders.user_id, current_timestamp, _data.number, to_number(_data.accrual, '9G999.99') 
+		SELECT orders.user_id, current_timestamp, _data.number,  to_number(_data.accrual, '999G9999D99999999')
 		FROM _data 
 		INNER JOIN orders 
 			ON _data.number = orders.number
