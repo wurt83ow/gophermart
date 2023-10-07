@@ -415,8 +415,7 @@ func (bdk *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 		}
 
 		if rec.UserAccrual < withdraw.Sum {
-			fmt.Println("Нужно списать: ", withdraw.Sum, " Всего у пользователя: ", rec.UserAccrual)
-			return errors.New("//!!! Здесь должна быть моя ошибка!")
+			return errors.New("Здесь должна быть моя ошибка!")
 		}
 
 		accrual := float32(math.Min(float64(leftWrite), float64(rec.Accrual)))
@@ -470,7 +469,7 @@ func (bdk *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 	}
 
 	if m.Accrual < 0 {
-		return errors.New("//!!! Здесь должна быть моя ошибка про нехватку остатка!")
+		return errors.New("Здесь должна быть моя ошибка про нехватку остатка!")
 	}
 
 	// коммитим транзакцию
