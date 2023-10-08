@@ -410,13 +410,13 @@ func (bdk *BDKeeper) SaveUser(key string, data models.DataUser) (models.DataUser
 func (bdk *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 	ctx := context.Background()
 
-	// запускаем транзакцию
+	// start the transaction
 	tx, err := bdk.conn.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	// в случае неуспешного коммита все изменения транзакции будут отменены
+	// if the commit is unsuccessful, all changes to the transaction will be rolled back
 	defer tx.Rollback()
 
 	Args := []interface{}{withdraw.UserID}
@@ -527,7 +527,7 @@ func (bdk *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 	// read the values from the database record into the corresponding fields of the structure
 	var m models.BDAccrual
 	err = row.Scan(&m.Accrual)
-	fmt.Println("текущий остаток", m.Accrual)
+
 	if err != nil {
 		return err
 	}
@@ -536,7 +536,7 @@ func (bdk *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 		return errors.New("this must be my mistake about not having enough leftovers")
 	}
 
-	// коммитим транзакцию
+	// commit the transaction
 	return tx.Commit()
 }
 
