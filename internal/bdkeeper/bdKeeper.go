@@ -467,6 +467,10 @@ func (bdk *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 		return err
 	}
 
+	if rows.Err() != nil {
+		return err
+	}
+
 	defer rows.Close()
 
 	valueStrings := make([]string, 0)
@@ -496,7 +500,7 @@ func (bdk *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 		}
 
 		if rec.UserAccrual < withdraw.Sum {
-			return errors.New("This must be my mistake about not having enough leftovers")
+			return errors.New("this must be my mistake about not having enough leftovers")
 		}
 
 		accrual := float32(math.Min(float64(leftWrite), float64(rec.Accrual)))
@@ -545,7 +549,7 @@ func (bdk *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 	}
 
 	if m.Accrual < 0 {
-		return errors.New("This must be my mistake about not having enough leftovers")
+		return errors.New("this must be my mistake about not having enough leftovers")
 	}
 
 	// коммитим транзакцию
