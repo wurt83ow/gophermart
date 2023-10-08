@@ -5,10 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 	"math"
 	"os"
-	"reflect"
 	"strings"
 	"time"
 
@@ -190,29 +188,21 @@ func (bdk *BDKeeper) GetOpenOrders() ([]string, error) {
 		return nil, err
 	}
 
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
 	defer rows.Close()
 
 	orders := make([]string, 0)
 	for rows.Next() {
-		record := models.BDOrder{}
+		m := models.BDOrder{}
 
-		s := reflect.ValueOf(&record).Elem()
-		numCols := s.NumField()
-		columns := make([]interface{}, numCols)
-		for i := 0; i < numCols; i++ {
-			field := s.Field(i)
-			columns[i] = field.Addr().Interface()
-		}
-
-		err := rows.Scan(columns...)
+		err := rows.Scan(&m.Order)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
-		orders = append(orders, record.Order)
-	}
-
-	if err = rows.Err(); err != nil {
-		return nil, err
+		orders = append(orders, m.Order)
 	}
 
 	return orders, nil
@@ -227,8 +217,7 @@ func (bdk *BDKeeper) LoadOrders() (storage.StorageOrders, error) {
 		o.id,
 		o.number,
 		o.status,
-		o.date,
-		'' AS date_rfc,
+		o.date,		 
 		COALESCE(s.accrual, 0) AS accrual,
 		o.user_id
 	FROM
@@ -241,29 +230,25 @@ func (bdk *BDKeeper) LoadOrders() (storage.StorageOrders, error) {
 		return nil, err
 	}
 
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
 	defer rows.Close()
 
 	data := make(storage.StorageOrders)
 	for rows.Next() {
-		record := models.DataОrder{}
+		m := models.DataОrder{}
 
-		s := reflect.ValueOf(&record).Elem()
-		numCols := s.NumField()
-		columns := make([]interface{}, numCols)
-		for i := 0; i < numCols; i++ {
-			field := s.Field(i)
-			columns[i] = field.Addr().Interface()
-		}
+		err := rows.Scan(&m.UUID, &m.Number,
+			&m.Status, &m.Date, &m.Accrual, &m.UserID)
 
-		err := rows.Scan(columns...)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
-		data[record.Number] = record
-	}
 
-	if err = rows.Err(); err != nil {
-		return data, err
+		m.DateRFC = m.Date.Format(time.RFC3339)
+		data[m.Number] = m
 	}
 
 	return data, nil
@@ -287,29 +272,21 @@ func (bdk *BDKeeper) LoadUsers() (storage.StorageUsers, error) {
 		return nil, err
 	}
 
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
 	defer rows.Close()
 
 	data := make(storage.StorageUsers)
 	for rows.Next() {
-		record := models.DataUser{}
+		m := models.DataUser{}
 
-		s := reflect.ValueOf(&record).Elem()
-		numCols := s.NumField()
-		columns := make([]interface{}, numCols)
-		for i := 0; i < numCols; i++ {
-			field := s.Field(i)
-			columns[i] = field.Addr().Interface()
-		}
-
-		err := rows.Scan(columns...)
+		err := rows.Scan(&m.UUID, &m.Name, &m.Email, &m.Hash)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
-		data[record.Email] = record
-	}
-
-	if err = rows.Err(); err != nil {
-		return data, err
+		data[m.Email] = m
 	}
 
 	return data, nil
@@ -501,28 +478,20 @@ func (bdk *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 		if leftWrite <= 0 {
 			break
 		}
-		rec := models.DataОrderBD{}
+		m := models.DataОrderBD{}
 
-		s := reflect.ValueOf(&rec).Elem()
-		numCols := s.NumField()
+		err := rows.Scan(&m.UserID, &m.Number,
+			&m.Date, &m.Accrual, &m.UserAccrual)
 
-		columns := make([]interface{}, numCols)
-
-		for i := 0; i < numCols; i++ {
-			field := s.Field(i)
-			columns[i] = field.Addr().Interface()
-		}
-
-		err := rows.Scan(columns...)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 
-		if rec.UserAccrual < withdraw.Sum {
+		if m.UserAccrual < withdraw.Sum {
 			return errors.New("this must be my mistake about not having enough leftovers")
 		}
 
-		accrual := float32(math.Min(float64(leftWrite), float64(rec.Accrual)))
+		accrual := float32(math.Min(float64(leftWrite), float64(m.Accrual)))
 		leftWrite -= accrual
 
 		valueStrings = append(valueStrings,
@@ -530,7 +499,7 @@ func (bdk *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 				idx*5+1, idx*5+2, idx*5+3, idx*5+4, idx*5+5))
 		valueArgs = append(valueArgs, withdraw.UserID)
 		valueArgs = append(valueArgs, time.Now())
-		valueArgs = append(valueArgs, rec.Number)
+		valueArgs = append(valueArgs, m.Number)
 		valueArgs = append(valueArgs, withdraw.Order)
 		valueArgs = append(valueArgs, -accrual)
 		idx++
