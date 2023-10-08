@@ -389,7 +389,9 @@ func (h *BaseController) GetUserBalance(w http.ResponseWriter, r *http.Request) 
 
 	balance, err := h.storage.GetUserBalance(userID)
 	if err != nil {
-		//!!! Что здесь?
+		w.WriteHeader(http.StatusInternalServerError) //code 500
+		h.log.Info("Internal Server Error: ", zap.Error(err))
+		return
 	}
 
 	// serialize the server response

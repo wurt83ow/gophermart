@@ -461,7 +461,8 @@ func (bdk *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 			nq.user_accrual	  
 		ORDER BY _orders.date ASC`
 	Args := []interface{}{withdraw.UserID}
-	rows, err := tx.QueryContext(ctx, stmt, Args...)
+	var rows *sql.Rows
+	rows, err = tx.QueryContext(ctx, stmt, Args...)
 
 	if err != nil {
 		fmt.Println("8sssssssssssssssssss7sssssss", err)
@@ -497,7 +498,7 @@ func (bdk *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 		}
 
 		if rec.UserAccrual < withdraw.Sum {
-			return errors.New("Здесь должна быть моя ошибка!")
+			return errors.New("This must be my mistake about not having enough leftovers!")
 		}
 
 		accrual := float32(math.Min(float64(leftWrite), float64(rec.Accrual)))
@@ -551,7 +552,7 @@ func (bdk *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 	}
 
 	if m.Accrual < 0 {
-		return errors.New("Здесь должна быть моя ошибка про нехватку остатка!")
+		return errors.New("This must be my mistake about not having enough leftovers!")
 	}
 
 	// коммитим транзакцию
