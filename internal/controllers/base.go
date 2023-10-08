@@ -3,7 +3,6 @@ package controllers
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -218,7 +217,7 @@ func (h *BaseController) ExecuteWithdraw(w http.ResponseWriter, r *http.Request)
 		w.WriteHeader(http.StatusInternalServerError) // code 500
 		return
 	}
-	fmt.Println("8888888888888888888888888888888888888_withdraw_query", regReq)
+
 	regReq.UserID = userID
 	err := h.storage.ExecuteWithdraw(regReq)
 	if err != nil {

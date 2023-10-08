@@ -461,11 +461,9 @@ func (bdk *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 			nq.user_accrual	  
 		ORDER BY _orders.date ASC`
 	Args := []interface{}{withdraw.UserID}
-	var rows *sql.Rows
-	rows, err = tx.QueryContext(ctx, stmt, Args...)
 
+	rows, err := tx.QueryContext(ctx, stmt, Args...)
 	if err != nil {
-		fmt.Println("8sssssssssssssssssss7sssssss", err)
 		return err
 	}
 
@@ -498,7 +496,7 @@ func (bdk *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 		}
 
 		if rec.UserAccrual < withdraw.Sum {
-			return errors.New("This must be my mistake about not having enough leftovers!")
+			return errors.New("This must be my mistake about not having enough leftovers")
 		}
 
 		accrual := float32(math.Min(float64(leftWrite), float64(rec.Accrual)))
@@ -527,11 +525,7 @@ func (bdk *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 		strings.Join(valueStrings, ","))
 	_, err = bdk.conn.ExecContext(ctx, stmt, valueArgs...)
 
-	fmt.Println("77777777777777777777777", valueStrings)
-	fmt.Println("88888888888888888888888", valueArgs)
-	fmt.Println("88888888888888888888888", stmt)
 	if err != nil {
-		fmt.Println("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", err)
 		return err
 	}
 
@@ -547,12 +541,11 @@ func (bdk *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 	err = row.Scan(&m.Accrual)
 	fmt.Println("текущий остаток", m.Accrual)
 	if err != nil {
-		fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", err)
 		return err
 	}
 
 	if m.Accrual < 0 {
-		return errors.New("This must be my mistake about not having enough leftovers!")
+		return errors.New("This must be my mistake about not having enough leftovers")
 	}
 
 	// коммитим транзакцию
@@ -591,7 +584,6 @@ func (bdk *BDKeeper) UpdateOrderStatus(result []models.ExtRespOrder) error {
 func (bdk *BDKeeper) InsertAccruel(orders map[string]models.ExtRespOrder) error {
 	ctx := context.Background()
 
-	fmt.Println("2222222222222222222222222222222222_InsertAccruel", orders)
 	valueStrings := make([]string, 0, len(orders))
 	valueArgs := make([]interface{}, 0, len(orders)*2)
 

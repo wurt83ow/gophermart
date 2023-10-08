@@ -53,6 +53,5 @@ func (c *ExtController) GetExtOrderAccruel(order string) (models.ExtRespOrder, e
 		return models.ExtRespOrder{}, err
 	}
 
-	fmt.Println("3333333333333333333333333333333333333_GetExtOrderAccruel", respOrd)
 	return respOrd, nil
 }
