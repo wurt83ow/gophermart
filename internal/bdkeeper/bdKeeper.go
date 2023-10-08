@@ -94,11 +94,9 @@ func (bdk *BDKeeper) GetUserWithdrawals(userID string) ([]models.DataWithdrawals
 	// get withdrawals from bd
 	sql := `
 	SELECT
-		id_order_out AS
-	ORDER,
-	- sum(accrual) AS sum,
-	processed_at AS data,
-	'' AS datarfc
+		id_order_out AS order,
+		- sum(accrual) AS sum,
+		processed_at AS data 
 	FROM
 		savings_account
 	WHERE
@@ -116,31 +114,22 @@ func (bdk *BDKeeper) GetUserWithdrawals(userID string) ([]models.DataWithdrawals
 
 	defer rows.Close()
 
-	withdrawals := make([]models.DataWithdrawals, 0)
+	result := make([]models.DataWithdrawals, 0)
 	for rows.Next() {
-		record := models.DataWithdrawals{}
-
-		s := reflect.ValueOf(&record).Elem()
-		numCols := s.NumField()
-		columns := make([]interface{}, numCols)
-		for i := 0; i < numCols; i++ {
-			field := s.Field(i)
-			columns[i] = field.Addr().Interface()
-		}
-
-		err := rows.Scan(columns...)
+		m := models.DataWithdrawals{}
+		err := rows.Scan(&m.Order, &m.Sum, &m.Date)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
-		record.DateRFC = record.Date.Format(time.RFC3339)
-		withdrawals = append(withdrawals, record)
+		m.DateRFC = m.Date.Format(time.RFC3339)
+		result = append(result, m)
 	}
 
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
 
-	return withdrawals, nil
+	return result, nil
 }
 
 func (bdk *BDKeeper) GetUserBalance(userID string) (models.DataBalance, error) {
@@ -544,7 +533,6 @@ func (bdk *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 		valueArgs = append(valueArgs, rec.Number)
 		valueArgs = append(valueArgs, withdraw.Order)
 		valueArgs = append(valueArgs, -accrual)
-
 		idx++
 	}
 
