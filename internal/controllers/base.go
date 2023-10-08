@@ -29,6 +29,7 @@ type Storage interface {
 	InsertUser(k string, v models.DataUser) (models.DataUser, error)
 	GetUser(k string) (models.DataUser, error)
 	GetUserOrders(userID string) []models.DataОrder
+	GetUserWithdrawals(userID string) ([]models.DataWithdrawals, error)
 	GetUserBalance(userID string) (models.DataBalance, error)
 	GetOpenOrders() ([]string, error)
 	ExecuteWithdraw(models.RequestWithdraw) error
@@ -86,6 +87,7 @@ func (h *BaseController) Route() *chi.Mux {
 		r.Get("/api/user/orders", h.getUserOrders)
 		r.Get("/api/user/balance", h.GetUserBalance)
 		r.Post("/api/user/balance/withdraw", h.ExecuteWithdraw)
+		r.Get("/api/user/withdrawals", h.GetUserWithdrawals)
 
 	})
 
@@ -320,6 +322,47 @@ func (h *BaseController) getUserOrders(w http.ResponseWriter, r *http.Request) {
 	// serialize the server response
 	enc := json.NewEncoder(w)
 	if err := enc.Encode(orders); err != nil {
+		// Internal Server Error
+		w.WriteHeader(http.StatusInternalServerError) //code 500
+		h.log.Info("Internal Server Error: ", zap.Error(err))
+		return
+	}
+
+	// w.WriteHeader(http.StatusOK) //code 200
+}
+
+// GET
+func (h *BaseController) GetUserWithdrawals(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+	// w.Header().Set("Content-Encoding", "gzip")
+	metod := zap.String("method", r.Method)
+
+	userID, ok := r.Context().Value(keyUserID).(string)
+	if !ok || len(userID) == 0 {
+		// user is not authorized
+		w.WriteHeader(http.StatusUnauthorized) //401
+		h.log.Info("user is not authenticated, request status 401: ", metod)
+		return
+	}
+
+	withdrawals, err := h.storage.GetUserWithdrawals(userID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError) //code 500
+		h.log.Info("Internal Server Error: ", zap.Error(err))
+		return
+	}
+
+	if len(withdrawals) == 0 {
+		// no information to answer
+		w.WriteHeader(http.StatusNoContent) // 204
+		h.log.Info("no information to answer, request status 204: ", metod)
+		return
+	}
+
+	// serialize the server response
+	enc := json.NewEncoder(w)
+	if err := enc.Encode(withdrawals); err != nil {
 		// Internal Server Error
 		w.WriteHeader(http.StatusInternalServerError) //code 500
 		h.log.Info("Internal Server Error: ", zap.Error(err))

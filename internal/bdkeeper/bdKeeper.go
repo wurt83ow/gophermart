@@ -88,6 +88,57 @@ func NewBDKeeper(dsn func() string, log Log) *BDKeeper {
 	}
 }
 
+func (bdk *BDKeeper) GetUserWithdrawals(userID string) ([]models.DataWithdrawals, error) {
+	ctx := context.Background()
+
+	// get orders from bd
+	rows, err := bdk.conn.QueryContext(ctx, `
+	SELECT ID_ORDER_OUT AS
+	ORDER,
+		-SUM(ACCRUAL) AS SUM,
+		PROCESSED_AT AS DATA,
+		'' AS DATARFC
+	FROM SAVINGS_ACCOUNT
+	WHERE ACCRUAL < 0
+		AND USER_ID = $1
+	GROUP BY ID_ORDER_OUT,
+		PROCESSED_AT
+	ORDER BY PROCESSED_AT
+	`, userID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	withdrawals := make([]models.DataWithdrawals, 0)
+	for rows.Next() {
+		record := models.DataWithdrawals{}
+
+		s := reflect.ValueOf(&record).Elem()
+		numCols := s.NumField()
+		columns := make([]interface{}, numCols)
+		for i := 0; i < numCols; i++ {
+			field := s.Field(i)
+			columns[i] = field.Addr().Interface()
+		}
+
+		err := rows.Scan(columns...)
+		if err != nil {
+			log.Fatal(err)
+		}
+		record.DateRFC = record.Date.Format(time.RFC3339)
+		withdrawals = append(withdrawals, record)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return withdrawals, nil
+}
+
 func (bdk *BDKeeper) GetUserBalance(userID string) (models.DataBalance, error) {
 	ctx := context.Background()
 	row := bdk.conn.QueryRowContext(ctx, `
