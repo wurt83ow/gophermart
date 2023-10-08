@@ -91,21 +91,26 @@ func NewBDKeeper(dsn func() string, log Log) *BDKeeper {
 func (bdk *BDKeeper) GetUserWithdrawals(userID string) ([]models.DataWithdrawals, error) {
 	ctx := context.Background()
 
-	// get orders from bd
-	rows, err := bdk.conn.QueryContext(ctx, `
-	SELECT ID_ORDER_OUT AS
+	// get withdrawals from bd
+	sql := `
+	SELECT
+		id_order_out AS
 	ORDER,
-		-SUM(ACCRUAL) AS SUM,
-		PROCESSED_AT AS DATA,
-		'' AS DATARFC
-	FROM SAVINGS_ACCOUNT
-	WHERE ACCRUAL < 0
-		AND USER_ID = $1
-	GROUP BY ID_ORDER_OUT,
-		PROCESSED_AT
-	ORDER BY PROCESSED_AT
-	`, userID)
+	- sum(accrual) AS sum,
+	processed_at AS data,
+	'' AS datarfc
+	FROM
+		savings_account
+	WHERE
+		accrual < 0
+		AND user_id = $1
+	GROUP BY
+		id_order_out,
+		processed_at
+	ORDER BY
+		processed_at`
 
+	rows, err := bdk.conn.QueryContext(ctx, sql, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -141,23 +146,31 @@ func (bdk *BDKeeper) GetUserWithdrawals(userID string) ([]models.DataWithdrawals
 
 func (bdk *BDKeeper) GetUserBalance(userID string) (models.DataBalance, error) {
 	ctx := context.Background()
-	row := bdk.conn.QueryRowContext(ctx, `
-	SELECT SUM(sq.current) AS current, 
-	-SUM(sq.withdrawn)AS withdrawn 
-	FROM 
-		(SELECT 
-		SUM(accrual) current, 
-		0 withdrawn
-		FROM  savings_account
-		WHERE user_id = $1 
-		UNION
-		SELECT 
-		0,
-		SUM(accrual)
-		FROM  savings_account
-		WHERE user_id = $1 AND accrual < 0) AS sq`,
-		userID,
-	)
+
+	sql := `
+	SELECT
+    SUM(sq.current) AS current,
+    - SUM(sq.withdrawn) AS withdrawn
+FROM (
+    SELECT
+        SUM(accrual)
+        CURRENT,
+        0 withdrawn
+    FROM
+        savings_account
+    WHERE
+        user_id = $1
+    UNION
+    SELECT
+        0,
+        SUM(accrual)
+    FROM
+        savings_account
+    WHERE
+        user_id = $1
+        AND accrual < 0) AS sq`
+
+	row := bdk.conn.QueryRowContext(ctx, sql, userID)
 
 	// read the values from the database record into the corresponding fields of the structure
 	var m models.DataBalance
@@ -313,29 +326,28 @@ func (bdk *BDKeeper) SaveOrder(key string, order models.DataОrder) (models.Data
 	} else {
 		id = order.UUID
 	}
-	_, err := bdk.conn.ExecContext(ctx,
-		`INSERT INTO orders (
-			id,
-			number,
-			date,
-			status,
-			user_id)
-		VALUES ($1, $2, $3, $4, $5) 
-		RETURNING user_id`,
+
+	sql := `
+	INSERT INTO orders (id, number, date, status, user_id)
+		VALUES ($1, $2, $3, $4, $5)
+	RETURNING
+		user_id`
+
+	_, err := bdk.conn.ExecContext(ctx, sql,
 		id, order.Number, order.Date, order.Status, order.UserID)
 
-	row := bdk.conn.QueryRowContext(ctx, `
+	sql = `
 	SELECT
 		d.id,
 		d.number,
 		d.date,
 		d.status,
-		d.user_id	 
-	FROM orders d	 
+		d.user_id
+	FROM
+		orders d
 	WHERE
-		d.number = $1`,
-		order.Number,
-	)
+		d.number = $1`
+	row := bdk.conn.QueryRowContext(ctx, sql, order.Number)
 
 	// read the values from the database record into the corresponding fields of the structure
 	var m models.DataОrder
