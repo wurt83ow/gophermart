@@ -109,7 +109,6 @@ func (bdk *BDKeeper) GetUserWithdrawals(userID string) ([]models.DataWithdrawals
 		processed_at
 	ORDER BY
 		processed_at`
-
 	rows, err := bdk.conn.QueryContext(ctx, sql, userID)
 	if err != nil {
 		return nil, err
@@ -149,27 +148,26 @@ func (bdk *BDKeeper) GetUserBalance(userID string) (models.DataBalance, error) {
 
 	sql := `
 	SELECT
-    SUM(sq.current) AS current,
-    - SUM(sq.withdrawn) AS withdrawn
-FROM (
-    SELECT
-        SUM(accrual)
-        CURRENT,
-        0 withdrawn
-    FROM
-        savings_account
-    WHERE
-        user_id = $1
-    UNION
-    SELECT
-        0,
-        SUM(accrual)
-    FROM
-        savings_account
-    WHERE
-        user_id = $1
-        AND accrual < 0) AS sq`
-
+		SUM(sq.current) AS current,
+		- SUM(sq.withdrawn) AS withdrawn
+	FROM (
+		SELECT
+			SUM(accrual)
+			CURRENT,
+			0 withdrawn
+		FROM
+			savings_account
+		WHERE
+			user_id = $1
+		UNION
+		SELECT
+			0,
+			SUM(accrual)
+		FROM
+			savings_account
+		WHERE
+			user_id = $1
+			AND accrual < 0) AS sq`
 	row := bdk.conn.QueryRowContext(ctx, sql, userID)
 
 	// read the values from the database record into the corresponding fields of the structure
@@ -187,14 +185,17 @@ func (bdk *BDKeeper) GetOpenOrders() ([]string, error) {
 	ctx := context.Background()
 
 	// get orders from bd
-	rows, err := bdk.conn.QueryContext(ctx, `
-	SELECT number
-	FROM public.orders
-	WHERE status <> 'INVALID'
-	AND status <> 'PROCESSED'
-	AND number <> ''
-	LIMIT 100
-	`)
+	sql := `
+	SELECT
+		number
+	FROM
+		public.orders
+	WHERE
+		status <> 'INVALID'
+		AND status <> 'PROCESSED'
+		AND number <> ''
+	LIMIT 100`
+	rows, err := bdk.conn.QueryContext(ctx, sql)
 
 	if err != nil {
 		return nil, err
@@ -232,19 +233,20 @@ func (bdk *BDKeeper) LoadOrders() (storage.StorageOrders, error) {
 	ctx := context.Background()
 
 	// get orders from bd
-	rows, err := bdk.conn.QueryContext(ctx, `
-	SELECT 
+	sql := `
+	SELECT
 		o.id,
 		o.number,
 		o.status,
 		o.date,
-		'' AS date_rfc,				
+		'' AS date_rfc,
 		COALESCE(s.accrual, 0) AS accrual,
-		o.user_id 
-	FROM orders AS o
-	LEFT JOIN savings_account AS s 
-	ON o.id = s.id_order_in
-		AND o.date = s.processed_at`)
+		o.user_id
+	FROM
+		orders AS o
+		LEFT JOIN savings_account AS s ON o.id = s.id_order_in
+			AND o.date = s.processed_at`
+	rows, err := bdk.conn.QueryContext(ctx, sql)
 
 	if err != nil {
 		return nil, err
@@ -282,7 +284,15 @@ func (bdk *BDKeeper) LoadUsers() (storage.StorageUsers, error) {
 	ctx := context.Background()
 
 	// get users from bd
-	rows, err := bdk.conn.QueryContext(ctx, `SELECT id, name, email, hash FROM users`)
+	sql := `
+	SELECT
+		id,
+		name,
+		email,
+		hash
+	FROM
+		users`
+	rows, err := bdk.conn.QueryContext(ctx, sql)
 
 	if err != nil {
 		return nil, err
@@ -332,7 +342,6 @@ func (bdk *BDKeeper) SaveOrder(key string, order models.DataОrder) (models.Data
 		VALUES ($1, $2, $3, $4, $5)
 	RETURNING
 		user_id`
-
 	_, err := bdk.conn.ExecContext(ctx, sql,
 		id, order.Number, order.Date, order.Status, order.UserID)
 
@@ -381,13 +390,12 @@ func (bdk *BDKeeper) SaveUser(key string, data models.DataUser) (models.DataUser
 		id = data.UUID
 	}
 
-	_, err := bdk.conn.ExecContext(ctx,
-		`INSERT INTO users (
-			id,
-			email,
-			hash,
-			name)
-		VALUES ($1, $2, $3, $4) RETURNING id`,
+	sql := `
+	INSERT INTO users (id, email, hash, name)
+		VALUES ($1, $2, $3, $4)
+	RETURNING
+		id`
+	_, err := bdk.conn.ExecContext(ctx, sql,
 		id, data.Email, data.Hash, data.Name)
 
 	var (
@@ -400,16 +408,18 @@ func (bdk *BDKeeper) SaveUser(key string, data models.DataUser) (models.DataUser
 		hash = data.Hash
 	}
 
-	stmt := fmt.Sprintf(`
+	sql = `
 	SELECT
 		u.id,
 		u.email,
 		u.hash,
-		u.name  	 
-	FROM users u	 
+		u.name
+	FROM
+		users u
 	WHERE
-		u.email = $1 %s`, cond)
-	row := bdk.conn.QueryRowContext(ctx, stmt, data.Email, hash)
+		u.email = $1 %s`
+	sql = fmt.Sprintf(sql, cond)
+	row := bdk.conn.QueryRowContext(ctx, sql, data.Email, hash)
 
 	// read the values from the database record into the corresponding fields of the structure
 	var m models.DataUser
@@ -442,39 +452,47 @@ func (bdk *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 
 	// в случае неуспешного коммита все изменения транзакции будут отменены
 	defer tx.Rollback()
-	stmt := `
-		WITH _orders AS ( 
-			SELECT * 
-			FROM orders 
-			WHERE  user_id = $1
-			FOR UPDATE)
-		SELECT 
-			sa.user_id,
-			sa.id_order_in AS number,	 
-			_orders.date AS date,
-			SUM(sa.accrual) AS accrual,
-			nq.user_accrual 
-		FROM savings_account AS sa
-		INNER JOIN _orders AS _orders
-			ON sa.id_order_in = _orders.number
-		INNER JOIN (
-				SELECT 
-					user_id, 
-					SUM(accrual) AS user_accrual 
-				FROM savings_account 
-				WHERE  user_id = $1
-				GROUP BY user_id) AS nq
-			ON nq.user_id = sa.user_id
-		WHERE sa.user_id = $1
-		GROUP BY 
-			sa.user_id,	
-			sa.id_order_in, 
-			_orders.date,
-			nq.user_accrual	  
-		ORDER BY _orders.date ASC`
-	Args := []interface{}{withdraw.UserID}
 
-	rows, err := tx.QueryContext(ctx, stmt, Args...)
+	Args := []interface{}{withdraw.UserID}
+	sql := `
+	WITH _orders AS (
+		SELECT
+			*
+		FROM
+			orders
+		WHERE
+			user_id = $1
+		FOR UPDATE
+	)
+	SELECT
+		sa.user_id,
+		sa.id_order_in AS number,
+		_orders.date AS date,
+		SUM(sa.accrual) AS accrual,
+		nq.user_accrual
+	FROM
+		savings_account AS sa
+		INNER JOIN _orders AS _orders ON sa.id_order_in = _orders.number
+		INNER JOIN (
+			SELECT
+				user_id,
+				SUM(accrual) AS user_accrual
+			FROM
+				savings_account
+			WHERE
+				user_id = $1
+			GROUP BY
+				user_id) AS nq ON nq.user_id = sa.user_id
+	WHERE
+		sa.user_id = $1
+	GROUP BY
+		sa.user_id,
+		sa.id_order_in,
+		_orders.date,
+		nq.user_accrual
+	ORDER BY
+		_orders.date ASC`
+	rows, err := tx.QueryContext(ctx, sql, Args...)
 	if err != nil {
 		return err
 	}
@@ -530,29 +548,26 @@ func (bdk *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 		idx++
 	}
 
-	stmt = fmt.Sprintf(
-		`INSERT INTO savings_account (
-				user_id,
-				processed_at,
-				id_order_in,
-				id_order_out,
-				accrual)
-			VALUES %s`,
-		strings.Join(valueStrings, ","))
-	_, err = bdk.conn.ExecContext(ctx, stmt, valueArgs...)
+	sql = `
+	INSERT INTO savings_account (user_id, processed_at, id_order_in, id_order_out, accrual)
+    VALUES %s`
+	sql = fmt.Sprintf(sql, strings.Join(valueStrings, ","))
+	_, err = bdk.conn.ExecContext(ctx, sql, valueArgs...)
 
 	if err != nil {
 		return err
 	}
 
-	row := bdk.conn.QueryRowContext(ctx,
-		`SELECT SUM(accrual) AS accrual
-		FROM savings_account 
-		WHERE user_id = $1`,
-		withdraw.UserID)
+	sql = `
+	SELECT
+		SUM(accrual) AS accrual
+	FROM
+		savings_account
+	WHERE
+		user_id = $1`
+	row := bdk.conn.QueryRowContext(ctx, sql, withdraw.UserID)
 
 	// read the values from the database record into the corresponding fields of the structure
-
 	var m models.BDAccrual
 	err = row.Scan(&m.Accrual)
 	fmt.Println("текущий остаток", m.Accrual)
@@ -580,15 +595,22 @@ func (bdk *BDKeeper) UpdateOrderStatus(result []models.ExtRespOrder) error {
 		valueArgs = append(valueArgs, v.Status)
 	}
 
-	stmt := fmt.Sprintf(
-		`WITH _data (number, status) 
-		AS (VALUES %s)
-		UPDATE orders 
-		SET status = CAST(_data.status AS statuses) 
-		FROM _data
-		WHERE orders.number = _data.number`,
-		strings.Join(valueStrings, ","))
-	_, err := bdk.conn.ExecContext(ctx, stmt, valueArgs...)
+	sql := `
+	WITH _data (
+		number,
+		status
+	) AS (
+		VALUES % s)
+	UPDATE
+		orders
+	SET
+		status = CAST(_data.status AS statuses)
+	FROM
+		_data
+	WHERE
+		orders.number = _data.number`
+	sql = fmt.Sprintf(sql, strings.Join(valueStrings, ","))
+	_, err := bdk.conn.ExecContext(ctx, sql, valueArgs...)
 
 	if err != nil {
 		return err
@@ -611,20 +633,27 @@ func (bdk *BDKeeper) InsertAccruel(orders map[string]models.ExtRespOrder) error 
 		i++
 	}
 
-	stmt := fmt.Sprintf(
-		`WITH _data (number, accrual) 
-			AS (VALUES %s)
-		INSERT INTO savings_account (user_id, processed_at, id_order_in,  accrual)
-		SELECT orders.user_id, current_timestamp, _data.number,  to_number(_data.accrual, '999G9999D99999999')
-		FROM _data 
-		INNER JOIN orders 
-			ON _data.number = orders.number
-		LEFT JOIN savings_account AS SA 
-			ON _data.number = SA.id_order_in
-				AND SA.id_order_out IS NULL
-		WHERE SA.id_order_in IS NULL`,
-		strings.Join(valueStrings, ","))
-	_, err := bdk.conn.ExecContext(ctx, stmt, valueArgs...)
+	sql := `
+	WITH _data (
+		number,
+		accrual
+	) AS (
+		VALUES % s)
+	INSERT INTO savings_account (user_id, processed_at, id_order_in, accrual)
+	SELECT
+		orders.user_id,
+		CURRENT_TIMESTAMP,
+		_data.number,
+		to_number(_data.accrual, '999G9999D99999999')
+	FROM
+		_data
+		INNER JOIN orders ON _data.number = orders.number
+		LEFT JOIN savings_account AS SA ON _data.number = SA.id_order_in
+			AND SA.id_order_out IS NULL
+	WHERE
+		SA.id_order_in IS NULL`
+	sql = fmt.Sprintf(sql, strings.Join(valueStrings, ","))
+	_, err := bdk.conn.ExecContext(ctx, sql, valueArgs...)
 
 	if err != nil {
 		return err
