@@ -365,8 +365,16 @@ func (h *BaseController) ExecuteWithdraw(w http.ResponseWriter, r *http.Request)
 	regReq.UserID = userID
 	err = h.storage.ExecuteWithdraw(regReq)
 	if err != nil {
+		if err == storage.ErrInsufficient {
+			w.WriteHeader(http.StatusPaymentRequired) //code 402
+			h.log.Info("there are insufficient funds in the account, request status 402: ", metod)
+		} else {
+			h.log.Info("cannot decode request JSON body: ", zap.Error(err))
+			w.WriteHeader(http.StatusInternalServerError) // code 500
+		}
 		return
 	}
+
 	// new order number accepted for processing
 	w.WriteHeader(http.StatusOK) //code 200
 }

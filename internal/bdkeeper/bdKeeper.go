@@ -488,7 +488,7 @@ func (kp *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 		}
 
 		if m.UserAccrual < withdraw.Sum {
-			return errors.New("this must be my mistake about not having enough leftovers")
+			return storage.ErrInsufficient
 		}
 
 		accrual := float32(math.Min(float64(leftWrite), float64(m.Accrual)))
@@ -533,7 +533,7 @@ func (kp *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 	}
 
 	if m.Accrual < 0 {
-		return errors.New("this must be my mistake about not having enough leftovers")
+		return storage.ErrInsufficient
 	}
 
 	// commit the transaction

@@ -13,6 +13,7 @@ import (
 
 // ErrConflict indicates a data conflict in the store.
 var ErrConflict = errors.New("data conflict")
+var ErrInsufficient = errors.New("insufficient funds")
 
 type StorageOrders = map[string]models.DataОrder
 type StorageUsers = map[string]models.DataUser
