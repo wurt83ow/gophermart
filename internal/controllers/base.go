@@ -354,8 +354,16 @@ func (h *BaseController) ExecuteWithdraw(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	ord, err := strconv.Atoi(regReq.Order)
+	if err != nil || !h.Valid(ord) {
+		// incorrect order number format
+		w.WriteHeader(http.StatusUnprocessableEntity) //code 422
+		h.log.Info("incorrect order number format, request status 422: ", metod)
+		return
+	}
+
 	regReq.UserID = userID
-	err := h.storage.ExecuteWithdraw(regReq)
+	err = h.storage.ExecuteWithdraw(regReq)
 	if err != nil {
 		return
 	}
