@@ -36,9 +36,9 @@ type Keeper interface {
 	SaveOrder(string, models.DataОrder) (models.DataОrder, error)
 	SaveUser(string, models.DataUser) (models.DataUser, error)
 	GetOpenOrders() ([]string, error)
-	GetUserBalance(userID string) (models.DataBalance, error)
-	GetUserWithdrawals(userID string) ([]models.DataWithdrawals, error)
-	UpdateOrderStatus(result []models.ExtRespOrder) error
+	GetUserBalance(string) (models.DataBalance, error)
+	GetUserWithdrawals(string) ([]models.DataWithdrawals, error)
+	UpdateOrderStatus([]models.ExtRespOrder) error
 	InsertAccruel(map[string]models.ExtRespOrder) error
 	ExecuteWithdraw(models.RequestWithdraw) error
 	Ping() bool
@@ -80,15 +80,9 @@ func (s *MemoryStorage) UpdateOrderStatus(result []models.ExtRespOrder) error {
 		o, exists := s.orders[v.Order]
 
 		if exists {
-			s.orders[v.Order] = models.DataОrder{
-				UUID:    o.UUID,
-				Number:  o.Number,
-				Status:  v.Status,
-				Date:    o.Date,
-				DateRFC: o.DateRFC,
-				Accrual: v.Accrual,
-				UserID:  o.UserID,
-			}
+			o.Status = v.Status
+			o.Accrual = v.Accrual
+			s.orders[v.Order] = o
 		}
 	}
 
@@ -100,7 +94,6 @@ func (s *MemoryStorage) InsertAccruel(orders map[string]models.ExtRespOrder) err
 }
 
 func (s *MemoryStorage) GetUser(k string) (models.DataUser, error) {
-
 	s.umx.RLock()
 	defer s.umx.RUnlock()
 
@@ -154,7 +147,6 @@ func (s *MemoryStorage) InsertUser(k string,
 }
 
 func (s *MemoryStorage) GetUserOrders(userID string) []models.DataОrder {
-	// var orders []models.DataОrder
 	orders := make([]models.DataОrder, 0)
 
 	s.omx.RLock()
@@ -164,10 +156,7 @@ func (s *MemoryStorage) GetUserOrders(userID string) []models.DataОrder {
 		if o.UserID != userID {
 			continue
 		}
-
 		o.DateRFC = o.Date.Format(time.RFC3339)
-		// o.Accrual = 0
-		// o.Status = "PROCESSED"
 		orders = append(orders, o)
 	}
 
@@ -189,6 +178,7 @@ func (s *MemoryStorage) GetUserBalance(userID string) (models.DataBalance, error
 
 	return s.keeper.GetUserBalance(userID)
 }
+
 func (s *MemoryStorage) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 	return s.keeper.ExecuteWithdraw(withdraw)
 }

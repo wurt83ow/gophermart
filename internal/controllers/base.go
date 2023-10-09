@@ -24,17 +24,14 @@ type IExternalClient interface {
 }
 
 type Storage interface {
-	InsertOrder(k string, v models.DataОrder) (models.DataОrder, error)
-	InsertUser(k string, v models.DataUser) (models.DataUser, error)
-	GetUser(k string) (models.DataUser, error)
-	GetUserOrders(userID string) []models.DataОrder
-	GetUserWithdrawals(userID string) ([]models.DataWithdrawals, error)
-	GetUserBalance(userID string) (models.DataBalance, error)
-	GetOpenOrders() ([]string, error)
-	ExecuteWithdraw(models.RequestWithdraw) error
-	SaveOrder(k string, v models.DataОrder) (models.DataОrder, error)
-	SaveUser(k string, v models.DataUser) (models.DataUser, error)
+	InsertOrder(string, models.DataОrder) (models.DataОrder, error)
+	InsertUser(string, models.DataUser) (models.DataUser, error)
+	GetUser(string) (models.DataUser, error)
+	GetUserOrders(string) []models.DataОrder
+	GetUserWithdrawals(string) ([]models.DataWithdrawals, error)
+	GetUserBalance(string) (models.DataBalance, error)
 	GetBaseConnection() bool
+	ExecuteWithdraw(models.RequestWithdraw) error
 }
 
 type Options interface {
@@ -48,9 +45,9 @@ type Log interface {
 
 type Authz interface {
 	JWTAuthzMiddleware(authz.Log) func(http.Handler) http.Handler
-	GetHash(email string, password string) []byte
-	CreateJWTTokenForUser(userid string) string
-	AuthCookie(name string, token string) *http.Cookie
+	GetHash(string, string) []byte
+	CreateJWTTokenForUser(string) string
+	AuthCookie(string, string) *http.Cookie
 }
 
 type BaseController struct {
@@ -76,14 +73,14 @@ func (h *BaseController) Route() *chi.Mux {
 
 	r.Post("/api/user/register", h.Register)
 	r.Post("/api/user/login", h.Login)
-	r.Get("/ping", h.getPing)
+	r.Get("/ping", h.GetPing)
 
 	// group where the middleware authorization is needed
 	r.Group(func(r chi.Router) {
 		r.Use(h.authz.JWTAuthzMiddleware(h.log))
 
-		r.Post("/api/user/orders", h.createOrder)
-		r.Get("/api/user/orders", h.getUserOrders)
+		r.Post("/api/user/orders", h.CreateOrder)
+		r.Get("/api/user/orders", h.GetUserOrders)
 		r.Get("/api/user/balance", h.GetUserBalance)
 		r.Post("/api/user/balance/withdraw", h.ExecuteWithdraw)
 		r.Get("/api/user/withdrawals", h.GetUserWithdrawals)
@@ -94,7 +91,6 @@ func (h *BaseController) Route() *chi.Mux {
 }
 
 func (h *BaseController) Register(w http.ResponseWriter, r *http.Request) {
-
 	regReq := models.RequestUser{}
 	dec := json.NewDecoder(r.Body)
 	if err := dec.Decode(&regReq); err != nil {
@@ -198,38 +194,18 @@ func (h *BaseController) Login(w http.ResponseWriter, r *http.Request) {
 	h.log.Info("incorrect login/password pair, request status 401: ", metod)
 }
 
-// POST
-func (h *BaseController) ExecuteWithdraw(w http.ResponseWriter, r *http.Request) {
-	metod := zap.String("method", r.Method)
-
-	userID, StatusOK := r.Context().Value(keyUserID).(string)
-	if !StatusOK || userID == "" {
-		// user is not authenticated
-		w.WriteHeader(http.StatusUnauthorized) //code 401
-		h.log.Info("user is not authenticated, request status 401: ", metod)
+func (h *BaseController) GetPing(w http.ResponseWriter, r *http.Request) {
+	if !h.storage.GetBaseConnection() {
+		h.log.Info("got status internal server error")
+		w.WriteHeader(http.StatusInternalServerError) // 500
 		return
 	}
 
-	regReq := models.RequestWithdraw{}
-	dec := json.NewDecoder(r.Body)
-	if err := dec.Decode(&regReq); err != nil {
-		h.log.Info("cannot decode request JSON body: ", zap.Error(err))
-		w.WriteHeader(http.StatusInternalServerError) // code 500
-		return
-	}
-
-	regReq.UserID = userID
-	err := h.storage.ExecuteWithdraw(regReq)
-	if err != nil {
-		return
-	}
-	// new order number accepted for processing
-	w.WriteHeader(http.StatusOK) //code 200
-
+	w.WriteHeader(http.StatusOK) // 200
+	h.log.Info("sending HTTP 200 response")
 }
 
-// POST
-func (h *BaseController) createOrder(w http.ResponseWriter, r *http.Request) {
+func (h *BaseController) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	metod := zap.String("method", r.Method)
 
 	userID, StatusOK := r.Context().Value(keyUserID).(string)
@@ -254,7 +230,7 @@ func (h *BaseController) createOrder(w http.ResponseWriter, r *http.Request) {
 	orderNum := string(body)
 
 	ord, err := strconv.Atoi(orderNum)
-	if err != nil || !Valid(ord) {
+	if err != nil || !h.Valid(ord) {
 		// incorrect order number format
 		w.WriteHeader(http.StatusUnprocessableEntity) //code 422
 		h.log.Info("incorrect order number format, request status 422: ", metod)
@@ -291,12 +267,9 @@ func (h *BaseController) createOrder(w http.ResponseWriter, r *http.Request) {
 
 	// new order number accepted for processing
 	w.WriteHeader(http.StatusAccepted) //code 202
-
 }
 
-// GET
-func (h *BaseController) getUserOrders(w http.ResponseWriter, r *http.Request) {
-
+func (h *BaseController) GetUserOrders(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	// w.Header().Set("Content-Encoding", "gzip")
 	metod := zap.String("method", r.Method)
@@ -327,12 +300,70 @@ func (h *BaseController) getUserOrders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// w.WriteHeader(http.StatusOK) //code 200
+	w.WriteHeader(http.StatusOK) //code 200
 }
 
-// GET
-func (h *BaseController) GetUserWithdrawals(w http.ResponseWriter, r *http.Request) {
+func (h *BaseController) GetUserBalance(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	// w.Header().Set("Content-Encoding", "gzip")
+	metod := zap.String("method", r.Method)
 
+	userID, ok := r.Context().Value(keyUserID).(string)
+	if !ok || len(userID) == 0 {
+		// user is not authorized
+		w.WriteHeader(http.StatusUnauthorized) //401
+		h.log.Info("user is not authenticated, request status 401: ", metod)
+		return
+	}
+
+	balance, err := h.storage.GetUserBalance(userID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError) //code 500
+		h.log.Info("Internal Server Error: ", zap.Error(err))
+		return
+	}
+
+	// serialize the server response
+	enc := json.NewEncoder(w)
+	if err := enc.Encode(balance); err != nil {
+		// Internal Server Error
+		w.WriteHeader(http.StatusInternalServerError) //code 500
+		h.log.Info("Internal Server Error: ", zap.Error(err))
+		return
+	}
+
+	w.WriteHeader(http.StatusOK) //code 200
+}
+
+func (h *BaseController) ExecuteWithdraw(w http.ResponseWriter, r *http.Request) {
+	metod := zap.String("method", r.Method)
+
+	userID, StatusOK := r.Context().Value(keyUserID).(string)
+	if !StatusOK || userID == "" {
+		// user is not authenticated
+		w.WriteHeader(http.StatusUnauthorized) //code 401
+		h.log.Info("user is not authenticated, request status 401: ", metod)
+		return
+	}
+
+	regReq := models.RequestWithdraw{}
+	dec := json.NewDecoder(r.Body)
+	if err := dec.Decode(&regReq); err != nil {
+		h.log.Info("cannot decode request JSON body: ", zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError) // code 500
+		return
+	}
+
+	regReq.UserID = userID
+	err := h.storage.ExecuteWithdraw(regReq)
+	if err != nil {
+		return
+	}
+	// new order number accepted for processing
+	w.WriteHeader(http.StatusOK) //code 200
+}
+
+func (h *BaseController) GetUserWithdrawals(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	// w.Header().Set("Content-Encoding", "gzip")
 	metod := zap.String("method", r.Method)
@@ -368,61 +399,15 @@ func (h *BaseController) GetUserWithdrawals(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// w.WriteHeader(http.StatusOK) //code 200
-}
-
-// GET
-func (h *BaseController) GetUserBalance(w http.ResponseWriter, r *http.Request) {
-
-	w.Header().Set("Content-Type", "application/json")
-	// w.Header().Set("Content-Encoding", "gzip")
-	metod := zap.String("method", r.Method)
-
-	userID, ok := r.Context().Value(keyUserID).(string)
-	if !ok || len(userID) == 0 {
-		// user is not authorized
-		w.WriteHeader(http.StatusUnauthorized) //401
-		h.log.Info("user is not authenticated, request status 401: ", metod)
-		return
-	}
-
-	balance, err := h.storage.GetUserBalance(userID)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError) //code 500
-		h.log.Info("Internal Server Error: ", zap.Error(err))
-		return
-	}
-
-	// serialize the server response
-	enc := json.NewEncoder(w)
-	if err := enc.Encode(balance); err != nil {
-		// Internal Server Error
-		w.WriteHeader(http.StatusInternalServerError) //code 500
-		h.log.Info("Internal Server Error: ", zap.Error(err))
-		return
-	}
-
-	// w.WriteHeader(http.StatusOK) //code 200
-}
-
-// GET
-func (h *BaseController) getPing(w http.ResponseWriter, r *http.Request) {
-	if !h.storage.GetBaseConnection() {
-		h.log.Info("got status internal server error")
-		w.WriteHeader(http.StatusInternalServerError) // 500
-		return
-	}
-
-	w.WriteHeader(http.StatusOK) // 200
-	h.log.Info("sending HTTP 200 response")
+	w.WriteHeader(http.StatusOK) //code 200
 }
 
 // Valid check number is valid or not based on Luhn algorithm
-func Valid(number int) bool {
-	return (number%10+checksum(number/10))%10 == 0
+func (h *BaseController) Valid(number int) bool {
+	return (number%10+h.checksum(number/10))%10 == 0
 }
 
-func checksum(number int) int {
+func (h *BaseController) checksum(number int) int {
 	var luhn int
 
 	for i := 0; number > 0; i++ {
