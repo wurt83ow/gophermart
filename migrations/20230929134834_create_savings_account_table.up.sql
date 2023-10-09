@@ -4,5 +4,5 @@ CREATE TABLE IF NOT EXISTS savings_account (
 	id_order_in VARCHAR(50),		
     id_order_out VARCHAR(50),
     accrual numeric,	     
-    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE 
+    FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE 
 	);

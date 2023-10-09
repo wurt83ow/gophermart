@@ -5,6 +5,6 @@ CREATE TABLE IF NOT EXISTS orders (
     date timestamp with time zone NOT NULL DEFAULT (current_timestamp AT TIME ZONE 'UTC'),       
     status statuses,  
     user_id VARCHAR(50) NOT NULL,        
-	FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE  
+	FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE  
     );
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_order ON orders (number);

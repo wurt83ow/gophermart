@@ -214,7 +214,7 @@ func (kp *BDKeeper) LoadOrders() (storage.StorageOrders, error) {
 	// get orders from bd
 	sql := `
 	SELECT
-		o.id,
+		o.order_id,
 		o.number,
 		o.status,
 		o.date,		 
@@ -222,7 +222,7 @@ func (kp *BDKeeper) LoadOrders() (storage.StorageOrders, error) {
 		o.user_id
 	FROM
 		orders AS o
-		LEFT JOIN savings_account AS s ON o.id = s.id_order_in
+		LEFT JOIN savings_account AS s ON o.order_id = s.id_order_in
 			AND o.date = s.processed_at`
 	rows, err := kp.conn.QueryContext(ctx, sql)
 
@@ -260,7 +260,7 @@ func (kp *BDKeeper) LoadUsers() (storage.StorageUsers, error) {
 	// get users from bd
 	sql := `
 	SELECT
-		id,
+		user_id,
 		name,
 		email,
 		hash
@@ -304,16 +304,16 @@ func (kp *BDKeeper) SaveOrder(key string, order models.Data–ûrder) (models.Data–
 	}
 
 	sql := `
-	INSERT INTO orders (id, number, date, status, user_id)
+	INSERT INTO orders (order_id, number, date, status, user_id)
 		VALUES ($1, $2, $3, $4, $5)
 	RETURNING
-		user_id`
+		order_id`
 	_, err := kp.conn.ExecContext(ctx, sql,
 		id, order.Number, order.Date, order.Status, order.UserID)
 
 	sql = `
 	SELECT
-		d.id,
+		d.order_id,
 		d.number,
 		d.date,
 		d.status,
@@ -357,10 +357,10 @@ func (kp *BDKeeper) SaveUser(key string, data models.DataUser) (models.DataUser,
 	}
 
 	sql := `
-	INSERT INTO users (id, email, hash, name)
+	INSERT INTO users (user_id, email, hash, name)
 		VALUES ($1, $2, $3, $4)
 	RETURNING
-		id`
+		user_id`
 	_, err := kp.conn.ExecContext(ctx, sql,
 		id, data.Email, data.Hash, data.Name)
 
@@ -376,7 +376,7 @@ func (kp *BDKeeper) SaveUser(key string, data models.DataUser) (models.DataUser,
 
 	sql = `
 	SELECT
-		u.id,
+		u.user_id,
 		u.email,
 		u.hash,
 		u.name
