@@ -1,6 +1,6 @@
 CREATE TYPE statuses AS ENUM ('NEW', 'PROCESSING', 'INVALID', 'PROCESSED');
 CREATE TABLE IF NOT EXISTS orders (
-    id VARCHAR(50) PRIMARY KEY, 
+    order_id VARCHAR(50) PRIMARY KEY, 
     number VARCHAR(50),     
     date timestamp with time zone NOT NULL DEFAULT (current_timestamp AT TIME ZONE 'UTC'),       
     status statuses,  
