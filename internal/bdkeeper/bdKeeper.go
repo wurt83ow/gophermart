@@ -86,7 +86,7 @@ func NewBDKeeper(dsn func() string, log Log) *BDKeeper {
 	}
 }
 
-func (bdk *BDKeeper) GetUserWithdrawals(userID string) ([]models.DataWithdrawals, error) {
+func (kp *BDKeeper) GetUserWithdrawals(userID string) ([]models.DataWithdrawals, error) {
 	ctx := context.Background()
 
 	// get withdrawals from bd
@@ -105,7 +105,7 @@ func (bdk *BDKeeper) GetUserWithdrawals(userID string) ([]models.DataWithdrawals
 		processed_at
 	ORDER BY
 		processed_at`
-	rows, err := bdk.conn.QueryContext(ctx, sql, userID)
+	rows, err := kp.conn.QueryContext(ctx, sql, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (bdk *BDKeeper) GetUserWithdrawals(userID string) ([]models.DataWithdrawals
 	return result, nil
 }
 
-func (bdk *BDKeeper) GetUserBalance(userID string) (models.DataBalance, error) {
+func (kp *BDKeeper) GetUserBalance(userID string) (models.DataBalance, error) {
 	ctx := context.Background()
 
 	sql := `
@@ -155,20 +155,20 @@ func (bdk *BDKeeper) GetUserBalance(userID string) (models.DataBalance, error) {
 		WHERE
 			user_id = $1
 			AND accrual < 0) AS sq`
-	row := bdk.conn.QueryRowContext(ctx, sql, userID)
+	row := kp.conn.QueryRowContext(ctx, sql, userID)
 
 	// read the values from the database record into the corresponding fields of the structure
 	var m models.DataBalance
 	err := row.Scan(&m.Current, &m.Withdrawn)
 	if err != nil {
-		bdk.log.Info("row scan error: ", zap.Error(err))
+		kp.log.Info("row scan error: ", zap.Error(err))
 		return models.DataBalance{}, err
 	}
 
 	return m, err
 }
 
-func (bdk *BDKeeper) GetOpenOrders() ([]string, error) {
+func (kp *BDKeeper) GetOpenOrders() ([]string, error) {
 	ctx := context.Background()
 
 	// get orders from bd
@@ -182,7 +182,7 @@ func (bdk *BDKeeper) GetOpenOrders() ([]string, error) {
 		AND status <> 'PROCESSED'
 		AND number <> ''
 	LIMIT 100`
-	rows, err := bdk.conn.QueryContext(ctx, sql)
+	rows, err := kp.conn.QueryContext(ctx, sql)
 
 	if err != nil {
 		return nil, err
@@ -208,7 +208,7 @@ func (bdk *BDKeeper) GetOpenOrders() ([]string, error) {
 	return orders, nil
 }
 
-func (bdk *BDKeeper) LoadOrders() (storage.StorageOrders, error) {
+func (kp *BDKeeper) LoadOrders() (storage.StorageOrders, error) {
 	ctx := context.Background()
 
 	// get orders from bd
@@ -224,7 +224,7 @@ func (bdk *BDKeeper) LoadOrders() (storage.StorageOrders, error) {
 		orders AS o
 		LEFT JOIN savings_account AS s ON o.id = s.id_order_in
 			AND o.date = s.processed_at`
-	rows, err := bdk.conn.QueryContext(ctx, sql)
+	rows, err := kp.conn.QueryContext(ctx, sql)
 
 	if err != nil {
 		return nil, err
@@ -254,7 +254,7 @@ func (bdk *BDKeeper) LoadOrders() (storage.StorageOrders, error) {
 	return data, nil
 }
 
-func (bdk *BDKeeper) LoadUsers() (storage.StorageUsers, error) {
+func (kp *BDKeeper) LoadUsers() (storage.StorageUsers, error) {
 	ctx := context.Background()
 
 	// get users from bd
@@ -266,7 +266,7 @@ func (bdk *BDKeeper) LoadUsers() (storage.StorageUsers, error) {
 		hash
 	FROM
 		users`
-	rows, err := bdk.conn.QueryContext(ctx, sql)
+	rows, err := kp.conn.QueryContext(ctx, sql)
 
 	if err != nil {
 		return nil, err
@@ -292,7 +292,7 @@ func (bdk *BDKeeper) LoadUsers() (storage.StorageUsers, error) {
 	return data, nil
 }
 
-func (bdk *BDKeeper) SaveOrder(key string, order models.DataОrder) (models.DataОrder, error) {
+func (kp *BDKeeper) SaveOrder(key string, order models.DataОrder) (models.DataОrder, error) {
 	ctx := context.Background()
 
 	var id string
@@ -308,7 +308,7 @@ func (bdk *BDKeeper) SaveOrder(key string, order models.DataОrder) (models.Data
 		VALUES ($1, $2, $3, $4, $5)
 	RETURNING
 		user_id`
-	_, err := bdk.conn.ExecContext(ctx, sql,
+	_, err := kp.conn.ExecContext(ctx, sql,
 		id, order.Number, order.Date, order.Status, order.UserID)
 
 	sql = `
@@ -322,20 +322,20 @@ func (bdk *BDKeeper) SaveOrder(key string, order models.DataОrder) (models.Data
 		orders d
 	WHERE
 		d.number = $1`
-	row := bdk.conn.QueryRowContext(ctx, sql, order.Number)
+	row := kp.conn.QueryRowContext(ctx, sql, order.Number)
 
 	// read the values from the database record into the corresponding fields of the structure
 	var m models.DataОrder
 	nerr := row.Scan(&m.UUID, &m.Number, &m.Date, &m.Status, &m.UserID)
 	if nerr != nil {
-		bdk.log.Info("row scan error: ", zap.Error(err))
+		kp.log.Info("row scan error: ", zap.Error(err))
 		return order, nerr
 	}
 
 	if err != nil {
 		var e *pgconn.PgError
 		if errors.As(err, &e) && e.Code == pgerrcode.UniqueViolation {
-			bdk.log.Info("unique field violation on column: ", zap.Error(err))
+			kp.log.Info("unique field violation on column: ", zap.Error(err))
 
 			return m, storage.ErrConflict
 		}
@@ -345,7 +345,7 @@ func (bdk *BDKeeper) SaveOrder(key string, order models.DataОrder) (models.Data
 	return m, nil
 }
 
-func (bdk *BDKeeper) SaveUser(key string, data models.DataUser) (models.DataUser, error) {
+func (kp *BDKeeper) SaveUser(key string, data models.DataUser) (models.DataUser, error) {
 	ctx := context.Background()
 
 	var id string
@@ -361,7 +361,7 @@ func (bdk *BDKeeper) SaveUser(key string, data models.DataUser) (models.DataUser
 		VALUES ($1, $2, $3, $4)
 	RETURNING
 		id`
-	_, err := bdk.conn.ExecContext(ctx, sql,
+	_, err := kp.conn.ExecContext(ctx, sql,
 		id, data.Email, data.Hash, data.Name)
 
 	var (
@@ -385,7 +385,7 @@ func (bdk *BDKeeper) SaveUser(key string, data models.DataUser) (models.DataUser
 	WHERE
 		u.email = $1 %s`
 	sql = fmt.Sprintf(sql, cond)
-	row := bdk.conn.QueryRowContext(ctx, sql, data.Email, hash)
+	row := kp.conn.QueryRowContext(ctx, sql, data.Email, hash)
 
 	// read the values from the database record into the corresponding fields of the structure
 	var m models.DataUser
@@ -397,7 +397,7 @@ func (bdk *BDKeeper) SaveUser(key string, data models.DataUser) (models.DataUser
 	if err != nil {
 		var e *pgconn.PgError
 		if errors.As(err, &e) && e.Code == pgerrcode.UniqueViolation {
-			bdk.log.Info("unique field violation on column: ", zap.Error(err))
+			kp.log.Info("unique field violation on column: ", zap.Error(err))
 
 			return m, storage.ErrConflict
 		}
@@ -407,11 +407,11 @@ func (bdk *BDKeeper) SaveUser(key string, data models.DataUser) (models.DataUser
 	return m, nil
 }
 
-func (bdk *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
+func (kp *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 	ctx := context.Background()
 
 	// start the transaction
-	tx, err := bdk.conn.BeginTx(ctx, nil)
+	tx, err := kp.conn.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -509,7 +509,7 @@ func (bdk *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 	INSERT INTO savings_account (user_id, processed_at, id_order_in, id_order_out, accrual)
     VALUES %s`
 	sql = fmt.Sprintf(sql, strings.Join(valueStrings, ","))
-	_, err = bdk.conn.ExecContext(ctx, sql, valueArgs...)
+	_, err = kp.conn.ExecContext(ctx, sql, valueArgs...)
 
 	if err != nil {
 		return err
@@ -522,7 +522,7 @@ func (bdk *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 		savings_account
 	WHERE
 		user_id = $1`
-	row := bdk.conn.QueryRowContext(ctx, sql, withdraw.UserID)
+	row := kp.conn.QueryRowContext(ctx, sql, withdraw.UserID)
 
 	// read the values from the database record into the corresponding fields of the structure
 	var m models.BDAccrual
@@ -540,7 +540,7 @@ func (bdk *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 	return tx.Commit()
 }
 
-func (bdk *BDKeeper) UpdateOrderStatus(result []models.ExtRespOrder) error {
+func (kp *BDKeeper) UpdateOrderStatus(result []models.ExtRespOrder) error {
 	ctx := context.Background()
 
 	valueStrings := make([]string, 0, len(result))
@@ -567,7 +567,7 @@ func (bdk *BDKeeper) UpdateOrderStatus(result []models.ExtRespOrder) error {
 	WHERE
 		orders.number = _data.number`
 	sql = fmt.Sprintf(sql, strings.Join(valueStrings, ","))
-	_, err := bdk.conn.ExecContext(ctx, sql, valueArgs...)
+	_, err := kp.conn.ExecContext(ctx, sql, valueArgs...)
 
 	if err != nil {
 		return err
@@ -576,7 +576,7 @@ func (bdk *BDKeeper) UpdateOrderStatus(result []models.ExtRespOrder) error {
 	return nil
 }
 
-func (bdk *BDKeeper) InsertAccruel(orders map[string]models.ExtRespOrder) error {
+func (kp *BDKeeper) InsertAccruel(orders map[string]models.ExtRespOrder) error {
 	ctx := context.Background()
 
 	valueStrings := make([]string, 0, len(orders))
@@ -610,7 +610,7 @@ func (bdk *BDKeeper) InsertAccruel(orders map[string]models.ExtRespOrder) error 
 	WHERE
 		SA.id_order_in IS NULL`
 	sql = fmt.Sprintf(sql, strings.Join(valueStrings, ","))
-	_, err := bdk.conn.ExecContext(ctx, sql, valueArgs...)
+	_, err := kp.conn.ExecContext(ctx, sql, valueArgs...)
 
 	if err != nil {
 		return err
@@ -619,19 +619,19 @@ func (bdk *BDKeeper) InsertAccruel(orders map[string]models.ExtRespOrder) error 
 	return nil
 }
 
-func (bdk *BDKeeper) Ping() bool {
+func (kp *BDKeeper) Ping() bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Microsecond)
 	defer cancel()
 
-	if err := bdk.conn.PingContext(ctx); err != nil {
+	if err := kp.conn.PingContext(ctx); err != nil {
 		return false
 	}
 
 	return true
 }
 
-func (bdk *BDKeeper) Close() bool {
-	bdk.conn.Close()
+func (kp *BDKeeper) Close() bool {
+	kp.conn.Close()
 
 	return true
 }
