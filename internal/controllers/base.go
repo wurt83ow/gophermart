@@ -230,7 +230,7 @@ func (h *BaseController) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	orderNum := string(body)
 
 	ord, err := strconv.Atoi(orderNum)
-	if err != nil || !h.Valid(ord) {
+	if err != nil || !h.valid(ord) {
 		// incorrect order number format
 		w.WriteHeader(http.StatusUnprocessableEntity) //code 422
 		h.log.Info("incorrect order number format, request status 422: ", metod)
@@ -355,7 +355,7 @@ func (h *BaseController) ExecuteWithdraw(w http.ResponseWriter, r *http.Request)
 	}
 
 	ord, err := strconv.Atoi(regReq.Order)
-	if err != nil || !h.Valid(ord) {
+	if err != nil || !h.valid(ord) {
 		// incorrect order number format
 		w.WriteHeader(http.StatusUnprocessableEntity) //code 422
 		h.log.Info("incorrect order number format, request status 422: ", metod)
@@ -419,7 +419,7 @@ func (h *BaseController) GetUserWithdrawals(w http.ResponseWriter, r *http.Reque
 }
 
 // Valid check number is valid or not based on Luhn algorithm
-func (h *BaseController) Valid(number int) bool {
+func (h *BaseController) valid(number int) bool {
 	return (number%10+h.checksum(number/10))%10 == 0
 }
 

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi"
+	"github.com/wurt83ow/gophermart/internal/accruel"
 	authz "github.com/wurt83ow/gophermart/internal/authorization"
 	"github.com/wurt83ow/gophermart/internal/bdkeeper"
 	"github.com/wurt83ow/gophermart/internal/config"
@@ -36,14 +37,9 @@ func Run() error {
 	// initialize the storage instance
 	memoryStorage := storage.NewMemoryStorage(keeper, nLogger)
 
-	// create a new controller for creating outgoing requests
-	extcontr := controllers.NewExtController(memoryStorage,
-		option.AccrualSystemAddress, nLogger)
-
 	// create a new workerpool for concurrency task processing
 	var allTask []*workerpool.Task
-	pool := workerpool.NewPool(allTask, option.Concurrency,
-		extcontr, memoryStorage, nLogger)
+	pool := workerpool.NewPool(allTask, option.Concurrency, nLogger)
 
 	// create a new NewJWTAuthz for user authorization
 	authz := authz.NewJWTAuthz(option.JWTSigningKey(), nLogger)
@@ -57,6 +53,13 @@ func Run() error {
 
 	// start the worker pool in the background
 	go pool.RunBackground()
+
+	// create a new controller for creating outgoing requests
+	extcontr := controllers.NewExtController(memoryStorage,
+		option.AccrualSystemAddress, nLogger)
+
+	accruelServise := accruel.NewAccrualService(extcontr, pool, memoryStorage, nLogger)
+	accruelServise.Start()
 
 	r := chi.NewRouter()
 	r.Use(reqLog.RequestLogger)
