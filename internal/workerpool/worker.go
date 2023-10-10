@@ -1,5 +1,3 @@
-// workerpool/worker.go
-
 package workerpool
 
 import (
@@ -7,14 +5,14 @@ import (
 	"sync"
 )
 
-// Worker контролирует всю работу
+// Worker controls all work
 type Worker struct {
 	ID       int
 	taskChan chan *Task
 	quit     chan bool
 }
 
-// NewWorker возвращает новый экземпляр worker-а
+// NewWorker returns a new worker instance
 func NewWorker(channel chan *Task, ID int) *Worker {
 	return &Worker{
 		ID:       ID,
@@ -23,7 +21,7 @@ func NewWorker(channel chan *Task, ID int) *Worker {
 	}
 }
 
-// запуск worker
+// starts a worker
 func (wr *Worker) Start(wg *sync.WaitGroup) {
 	fmt.Printf("Starting worker %d\n", wr.ID)
 
@@ -36,7 +34,7 @@ func (wr *Worker) Start(wg *sync.WaitGroup) {
 	}()
 }
 
-// StartBackground запускает worker-а в фоне
+// StartBackground starts a worker in the background
 func (wr *Worker) StartBackground() {
 	fmt.Printf("Starting worker %d\n", wr.ID)
 
@@ -50,7 +48,7 @@ func (wr *Worker) StartBackground() {
 	}
 }
 
-// Остановка quits для воркера
+// Stop quits for worker
 func (wr *Worker) Stop() {
 	fmt.Printf("Closing worker %d\n", wr.ID)
 	go func() {

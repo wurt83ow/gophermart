@@ -15,7 +15,7 @@ import (
 var ErrConflict = errors.New("data conflict")
 var ErrInsufficient = errors.New("insufficient funds")
 
-type StorageOrders = map[string]models.DataОrder
+type StorageOrders = map[string]models.DataOrder
 type StorageUsers = map[string]models.DataUser
 
 type Log interface {
@@ -34,7 +34,7 @@ type MemoryStorage struct {
 type Keeper interface {
 	LoadOrders() (StorageOrders, error)
 	LoadUsers() (StorageUsers, error)
-	SaveOrder(string, models.DataОrder) (models.DataОrder, error)
+	SaveOrder(string, models.DataOrder) (models.DataOrder, error)
 	SaveUser(string, models.DataUser) (models.DataUser, error)
 	GetOpenOrders() ([]string, error)
 	GetUserBalance(string) (models.DataBalance, error)
@@ -116,7 +116,7 @@ func (s *MemoryStorage) GetOpenOrders() ([]string, error) {
 }
 
 func (s *MemoryStorage) InsertOrder(k string,
-	v models.DataОrder) (models.DataОrder, error) {
+	v models.DataOrder) (models.DataOrder, error) {
 
 	nv, err := s.SaveOrder(k, v)
 	if err != nil {
@@ -147,8 +147,8 @@ func (s *MemoryStorage) InsertUser(k string,
 	return nv, nil
 }
 
-func (s *MemoryStorage) GetUserOrders(userID string) []models.DataОrder {
-	orders := make([]models.DataОrder, 0)
+func (s *MemoryStorage) GetUserOrders(userID string) []models.DataOrder {
+	orders := make([]models.DataOrder, 0)
 
 	s.omx.RLock()
 	defer s.omx.RUnlock()
@@ -184,7 +184,7 @@ func (s *MemoryStorage) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 	return s.keeper.ExecuteWithdraw(withdraw)
 }
 
-func (s *MemoryStorage) SaveOrder(k string, v models.DataОrder) (models.DataОrder, error) {
+func (s *MemoryStorage) SaveOrder(k string, v models.DataOrder) (models.DataOrder, error) {
 	if s.keeper == nil {
 		return v, nil
 	}

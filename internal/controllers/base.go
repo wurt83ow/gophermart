@@ -24,10 +24,10 @@ type IExternalClient interface {
 }
 
 type Storage interface {
-	InsertOrder(string, models.DataОrder) (models.DataОrder, error)
+	InsertOrder(string, models.DataOrder) (models.DataOrder, error)
 	InsertUser(string, models.DataUser) (models.DataUser, error)
 	GetUser(string) (models.DataUser, error)
-	GetUserOrders(string) []models.DataОrder
+	GetUserOrders(string) []models.DataOrder
 	GetUserWithdrawals(string) ([]models.DataWithdrawals, error)
 	GetUserBalance(string) (models.DataBalance, error)
 	GetBaseConnection() bool
@@ -241,7 +241,7 @@ func (h *BaseController) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	status := "NEW"
 
 	// save full url to storage with the key received earlier
-	order, err := h.storage.InsertOrder(orderNum, models.DataОrder{
+	order, err := h.storage.InsertOrder(orderNum, models.DataOrder{
 		Number: orderNum, Date: curDate, Status: status, UserID: userID})
 
 	if err != nil {

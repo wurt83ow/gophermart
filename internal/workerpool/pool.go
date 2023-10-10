@@ -1,5 +1,3 @@
-// workerpoo/pool.go
-
 package workerpool
 
 import (
@@ -28,7 +26,7 @@ type Storage interface {
 	InsertAccruel(map[string]models.ExtRespOrder) error
 }
 
-// Pool воркера
+// Pool
 type Pool struct {
 	Tasks   []*Task
 	Workers []*Worker
@@ -44,7 +42,7 @@ type Pool struct {
 	log           Log
 }
 
-// NewPool инициализирует новый пул с заданными задачами и
+// NewPool initializes a new pool with the given tasks
 
 func NewPool(tasks []*Task, concurrency func() string, external External, storage Storage, log Log) *Pool {
 
@@ -65,8 +63,7 @@ func NewPool(tasks []*Task, concurrency func() string, external External, storag
 	}
 }
 
-// Run запускает всю работу в Pool и блокирует ее до тех пор,
-// пока она не будет закончена.
+// Starts all the work in the Pool and blocks until it is finished.
 func (p *Pool) Run() {
 	for i := 1; i <= p.concurrency; i++ {
 		worker := NewWorker(p.collector, i)
@@ -81,12 +78,12 @@ func (p *Pool) Run() {
 	p.wg.Wait()
 }
 
-// AddTask добавляет таски в pool
+// AddTask adds tasks to the pool
 func (p *Pool) AddTask(task *Task) {
 	p.collector <- task
 }
 
-// AddResults добавляет result в pool
+// AddResults adds result to pool
 func (p *Pool) AddResults(result interface{}) {
 	p.results <- result
 }
@@ -96,7 +93,7 @@ func (p *Pool) GetResults() <-chan interface{} {
 	return p.results
 }
 
-// RunBackground запускает pool в фоне
+// RunBackground runs the pool in the background
 func (p *Pool) RunBackground() {
 	go func() {
 		for {
@@ -125,7 +122,7 @@ func (p *Pool) RunBackground() {
 	<-p.runBackground
 }
 
-// Stop останавливает запущенных в фоне worker-ов
+// Stop stops workers running in the background
 func (p *Pool) Stop() {
 	for i := range p.Workers {
 		p.Workers[i].Stop()
@@ -152,9 +149,7 @@ func (p *Pool) UpdateOrders(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case job := <-p.results:
-
 			result = append(result, job.(models.ExtRespOrder))
-
 		case <-t.C:
 			orders, err := p.storage.GetOpenOrders()
 			if err != nil {
@@ -167,7 +162,6 @@ func (p *Pool) UpdateOrders(ctx context.Context) {
 				result = nil
 			}
 		}
-
 	}
 }
 
@@ -194,21 +188,15 @@ func (p *Pool) CreateOrdersTask(orders []string) {
 
 func (p *Pool) doWork(result []models.ExtRespOrder) {
 
-	// 1.Вызвать методы storage UpdateOrderStatus и метод кипера
-	// для группового обновления таблицы orders (поле статус)
+	// perform a group update of the orders table (status field)
 	err := p.storage.UpdateOrderStatus(result)
 	if err != nil {
-		//!!! перенести лог и сообщить что-то
-		fmt.Println("7777777777777777777777777777777777", err)
+		p.log.Info("errors when updating order status: ", zap.Error(err))
 	}
 
-	// 2. Отобрать в массиве только структуры с accruel и вызвать
-	// метод storage InsertAccruel и метод кипера для добавления записей
-	// в savings_account
-
+	// add records with accruel to savings_account
 	var dmx sync.RWMutex
 
-	//!!! Здесь оставить только записи с полем accruel
 	orders := make(map[string]models.ExtRespOrder, 0)
 	for _, o := range result {
 		if o.Accrual != 0 {
@@ -220,8 +208,7 @@ func (p *Pool) doWork(result []models.ExtRespOrder) {
 
 	err = p.storage.InsertAccruel(orders)
 	if err != nil {
-		//!!! перенести лог и сообщить что-то
-		fmt.Println("7777777777777777777777777777777777", err)
+		p.log.Info("errors when accruel inserting: ", zap.Error(err))
 	}
 
 }

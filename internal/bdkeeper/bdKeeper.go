@@ -238,7 +238,7 @@ func (kp *BDKeeper) LoadOrders() (storage.StorageOrders, error) {
 
 	data := make(storage.StorageOrders)
 	for rows.Next() {
-		m := models.DataОrder{}
+		m := models.DataOrder{}
 
 		err := rows.Scan(&m.UUID, &m.Number,
 			&m.Status, &m.Date, &m.Accrual, &m.UserID)
@@ -292,7 +292,7 @@ func (kp *BDKeeper) LoadUsers() (storage.StorageUsers, error) {
 	return data, nil
 }
 
-func (kp *BDKeeper) SaveOrder(key string, order models.DataОrder) (models.DataОrder, error) {
+func (kp *BDKeeper) SaveOrder(key string, order models.DataOrder) (models.DataOrder, error) {
 	ctx := context.Background()
 
 	var id string
@@ -325,7 +325,7 @@ func (kp *BDKeeper) SaveOrder(key string, order models.DataОrder) (models.Data�
 	row := kp.conn.QueryRowContext(ctx, sql, order.Number)
 
 	// read the values from the database record into the corresponding fields of the structure
-	var m models.DataОrder
+	var m models.DataOrder
 	nerr := row.Scan(&m.UUID, &m.Number, &m.Date, &m.Status, &m.UserID)
 	if nerr != nil {
 		kp.log.Info("row scan error: ", zap.Error(err))
@@ -478,7 +478,7 @@ func (kp *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
 		if leftWrite <= 0 {
 			break
 		}
-		m := models.DataОrderBD{}
+		m := models.DataOrderBD{}
 
 		err := rows.Scan(&m.UserID, &m.Number,
 			&m.Date, &m.Accrual, &m.UserAccrual)
