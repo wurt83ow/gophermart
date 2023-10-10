@@ -42,14 +42,6 @@ type ExtRespOrder struct {
 	Accrual float32 `db:"accrual" json:"accrual,omitempty"`
 }
 
-// type BDOrder struct {
-// 	Order string `db:"order" `
-// }
-
-// type BDAccrual struct {
-// 	Accrual float32 `db:"accrual" json:"accrual,omitempty"`
-// }
-
 type DataWithdraw struct {
 	UserID  string    `db:"user_id" json:"user_id"`
 	Order   string    `db:"order" json:"order"`
