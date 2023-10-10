@@ -127,12 +127,12 @@ func (a *AccrualService) CreateOrdersTask(orders []string) {
 	}
 }
 
-func (p *AccrualService) doWork(result []models.ExtRespOrder) {
+func (a *AccrualService) doWork(result []models.ExtRespOrder) {
 
 	// perform a group update of the orders table (status field)
-	err := p.storage.UpdateOrderStatus(result)
+	err := a.storage.UpdateOrderStatus(result)
 	if err != nil {
-		p.log.Info("errors when updating order status: ", zap.Error(err))
+		a.log.Info("errors when updating order status: ", zap.Error(err))
 	}
 
 	// add records with accruel to savings_account
@@ -147,9 +147,9 @@ func (p *AccrualService) doWork(result []models.ExtRespOrder) {
 		}
 	}
 
-	err = p.storage.InsertAccruel(orders)
+	err = a.storage.InsertAccruel(orders)
 	if err != nil {
-		p.log.Info("errors when accruel inserting: ", zap.Error(err))
+		a.log.Info("errors when accruel inserting: ", zap.Error(err))
 	}
 
 }
