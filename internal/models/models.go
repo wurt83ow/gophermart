@@ -57,15 +57,8 @@ type BDAccrual struct {
 	Accrual float32 `db:"accrual" json:"accrual,omitempty"`
 }
 
-type RequestWithdraw struct {
+type DataWithdraw struct {
 	UserID  string    `db:"user_id" json:"user_id"`
-	Order   string    `db:"order" json:"order"`
-	Sum     float32   `db:"sum" json:"sum"`
-	Date    time.Time `db:"date" json:"-"`
-	DateRFC string    `db:"processed_at" json:"processed_at"`
-}
-
-type DataWithdrawals struct {
 	Order   string    `db:"order" json:"order"`
 	Sum     float32   `db:"sum" json:"sum"`
 	Date    time.Time `db:"date" json:"-"`

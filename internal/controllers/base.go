@@ -28,10 +28,10 @@ type Storage interface {
 	InsertUser(string, models.DataUser) (models.DataUser, error)
 	GetUser(string) (models.DataUser, error)
 	GetUserOrders(string) []models.DataOrder
-	GetUserWithdrawals(string) ([]models.DataWithdrawals, error)
+	GetUserWithdrawals(string) ([]models.DataWithdraw, error)
 	GetUserBalance(string) (models.DataBalance, error)
 	GetBaseConnection() bool
-	ExecuteWithdraw(models.RequestWithdraw) error
+	ExecuteWithdraw(models.DataWithdraw) error
 }
 
 type Options interface {
@@ -346,7 +346,7 @@ func (h *BaseController) ExecuteWithdraw(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	regReq := models.RequestWithdraw{}
+	regReq := models.DataWithdraw{}
 	dec := json.NewDecoder(r.Body)
 	if err := dec.Decode(&regReq); err != nil {
 		h.log.Info("cannot decode request JSON body: ", zap.Error(err))

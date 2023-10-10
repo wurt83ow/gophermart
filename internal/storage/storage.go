@@ -38,10 +38,10 @@ type Keeper interface {
 	SaveUser(string, models.DataUser) (models.DataUser, error)
 	GetOpenOrders() ([]string, error)
 	GetUserBalance(string) (models.DataBalance, error)
-	GetUserWithdrawals(string) ([]models.DataWithdrawals, error)
+	GetUserWithdrawals(string) ([]models.DataWithdraw, error)
 	UpdateOrderStatus([]models.ExtRespOrder) error
 	InsertAccruel(map[string]models.ExtRespOrder) error
-	ExecuteWithdraw(models.RequestWithdraw) error
+	ExecuteWithdraw(models.DataWithdraw) error
 	Ping() bool
 	Close() bool
 }
@@ -168,7 +168,7 @@ func (s *MemoryStorage) GetUserOrders(userID string) []models.DataOrder {
 	return orders
 }
 
-func (s *MemoryStorage) GetUserWithdrawals(userID string) ([]models.DataWithdrawals, error) {
+func (s *MemoryStorage) GetUserWithdrawals(userID string) ([]models.DataWithdraw, error) {
 	return s.keeper.GetUserWithdrawals(userID)
 }
 
@@ -180,7 +180,7 @@ func (s *MemoryStorage) GetUserBalance(userID string) (models.DataBalance, error
 	return s.keeper.GetUserBalance(userID)
 }
 
-func (s *MemoryStorage) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
+func (s *MemoryStorage) ExecuteWithdraw(withdraw models.DataWithdraw) error {
 	return s.keeper.ExecuteWithdraw(withdraw)
 }
 

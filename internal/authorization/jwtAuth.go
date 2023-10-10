@@ -14,10 +14,6 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// type Storage interface {
-// 	InsertUser(k string, v models.DataUser) (models.DataUser, error)
-// }
-
 type CustomClaims struct {
 	Email string `json:"email"`
 	jwt.StandardClaims

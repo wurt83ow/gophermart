@@ -86,7 +86,7 @@ func NewBDKeeper(dsn func() string, log Log) *BDKeeper {
 	}
 }
 
-func (kp *BDKeeper) GetUserWithdrawals(userID string) ([]models.DataWithdrawals, error) {
+func (kp *BDKeeper) GetUserWithdrawals(userID string) ([]models.DataWithdraw, error) {
 	ctx := context.Background()
 
 	// get withdrawals from bd
@@ -112,9 +112,9 @@ func (kp *BDKeeper) GetUserWithdrawals(userID string) ([]models.DataWithdrawals,
 
 	defer rows.Close()
 
-	result := make([]models.DataWithdrawals, 0)
+	result := make([]models.DataWithdraw, 0)
 	for rows.Next() {
-		m := models.DataWithdrawals{}
+		m := models.DataWithdraw{}
 		err := rows.Scan(&m.Order, &m.Sum, &m.Date)
 		if err != nil {
 			return nil, err
@@ -407,7 +407,7 @@ func (kp *BDKeeper) SaveUser(key string, data models.DataUser) (models.DataUser,
 	return m, nil
 }
 
-func (kp *BDKeeper) ExecuteWithdraw(withdraw models.RequestWithdraw) error {
+func (kp *BDKeeper) ExecuteWithdraw(withdraw models.DataWithdraw) error {
 	ctx := context.Background()
 
 	// start the transaction
