@@ -196,7 +196,7 @@ func (kp *BDKeeper) GetOpenOrders() ([]string, error) {
 
 	orders := make([]string, 0)
 	for rows.Next() {
-		m := models.BDOrder{}
+		m := models.ExtRespOrder{}
 
 		err := rows.Scan(&m.Order)
 		if err != nil {
@@ -525,7 +525,7 @@ func (kp *BDKeeper) ExecuteWithdraw(withdraw models.DataWithdraw) error {
 	row := kp.conn.QueryRowContext(ctx, sql, withdraw.UserID)
 
 	// read the values from the database record into the corresponding fields of the structure
-	var m models.BDAccrual
+	var m models.ExtRespOrder
 	err = row.Scan(&m.Accrual)
 
 	if err != nil {
