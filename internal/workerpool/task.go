@@ -1,5 +1,3 @@
-// workerpool/task.go
-
 package workerpool
 
 import (
