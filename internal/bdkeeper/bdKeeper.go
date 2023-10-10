@@ -478,7 +478,7 @@ func (kp *BDKeeper) ExecuteWithdraw(withdraw models.DataWithdraw) error {
 		if leftWrite <= 0 {
 			break
 		}
-		m := models.DataOrderBD{}
+		m := models.DataOrder{}
 
 		err := rows.Scan(&m.UserID, &m.Number,
 			&m.Date, &m.Accrual, &m.UserAccrual)
