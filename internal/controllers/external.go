@@ -2,11 +2,10 @@ package controllers
 
 import (
 	"encoding/json"
-	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/wurt83ow/gophermart/internal/models"
+	"go.uber.org/zap"
 )
 
 type ExtController struct {
@@ -39,12 +38,13 @@ func (c *ExtController) GetExtOrderAccruel(order string) (models.ExtRespOrder, e
 
 	resp, err := http.Get(url)
 	if err != nil {
-		log.Fatal(err) //!!! log
+		c.log.Info("cannot convert concurrency option: ", zap.Error(err))
 	}
+
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		fmt.Println("status code error: ", resp.StatusCode, resp.Status)
+		c.log.Info("status code error: ", zap.String("method", resp.Status))
 	}
 
 	respOrd := models.ExtRespOrder{}

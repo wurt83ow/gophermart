@@ -11,6 +11,7 @@ type Options struct {
 	flagDataBaseDSN          string
 	flagJWTSigningKey        string
 	flagAccrualSystemAddress string
+	flagConcurrency          string
 }
 
 func NewOptions() *Options {
@@ -25,6 +26,7 @@ func (o *Options) ParseFlags() {
 	regStringVar(&o.flagDataBaseDSN, "d", "", "")
 	regStringVar(&o.flagJWTSigningKey, "j", "test_key", "jwt signing key")
 	regStringVar(&o.flagAccrualSystemAddress, "r", ":8082", "acrual system address")
+	regStringVar(&o.flagConcurrency, "c", "5", "Concurrency")
 
 	// parse the arguments passed to the server into registered variables
 	flag.Parse()
@@ -41,13 +43,18 @@ func (o *Options) ParseFlags() {
 		o.flagDataBaseDSN = envDataBaseDSN
 	}
 
+	if envJWTSigningKey := os.Getenv("JWT_SIGNING_KEY"); envJWTSigningKey != "" {
+		o.flagJWTSigningKey = envJWTSigningKey
+	}
+
 	if envAccrualSystemAddress := os.Getenv("ACCRUAL_SYSTEM_ADDRESS"); envAccrualSystemAddress != "" {
 		o.flagAccrualSystemAddress = envAccrualSystemAddress
 	}
 
-	if envJWTSigningKey := os.Getenv("JWT_SIGNING_KEY"); envJWTSigningKey != "" {
-		o.flagJWTSigningKey = envJWTSigningKey
+	if envConcurrency := os.Getenv("CONCURRENCY"); envConcurrency != "" {
+		o.flagConcurrency = envConcurrency
 	}
+
 }
 
 func (o *Options) RunAddr() string {
@@ -62,12 +69,16 @@ func (o *Options) DataBaseDSN() string {
 	return getStringFlag("d")
 }
 
+func (o *Options) JWTSigningKey() string {
+	return getStringFlag("j")
+}
+
 func (o *Options) AccrualSystemAddress() string {
 	return getStringFlag("r")
 }
 
-func (o *Options) JWTSigningKey() string {
-	return getStringFlag("j")
+func (o *Options) Concurrency() string {
+	return getStringFlag("c")
 }
 
 func regStringVar(p *string, name string, value string, usage string) {

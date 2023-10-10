@@ -32,13 +32,16 @@ func Run() error {
 
 	memoryStorage := storage.NewMemoryStorage(keeper, nLogger)
 
-	extcontr := controllers.NewExtController(memoryStorage, option.AccrualSystemAddress, nLogger)
+	extcontr := controllers.NewExtController(memoryStorage,
+		option.AccrualSystemAddress, nLogger)
 
 	var allTask []*workerpool.Task
-	pool := workerpool.NewPool(allTask, 5, extcontr, memoryStorage) //!!! вынести в config кол. воркеров
+	pool := workerpool.NewPool(allTask, option.Concurrency,
+		extcontr, memoryStorage, nLogger)
 
 	authz := authz.NewJWTAuthz(option.JWTSigningKey(), nLogger)
-	basecontr := controllers.NewBaseController(memoryStorage, option, nLogger, authz)
+	basecontr := controllers.NewBaseController(memoryStorage, option,
+		nLogger, authz)
 	reqLog := middleware.NewReqLog(nLogger)
 
 	go pool.RunBackground()

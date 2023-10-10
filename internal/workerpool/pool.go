@@ -5,15 +5,23 @@ package workerpool
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/wurt83ow/gophermart/internal/models"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 type External interface {
 	GetExtOrderAccruel(string) (models.ExtRespOrder, error)
 }
+
+type Log interface {
+	Info(string, ...zapcore.Field)
+}
+
 type Storage interface {
 	GetOpenOrders() ([]string, error)
 	UpdateOrderStatus([]models.ExtRespOrder) error
@@ -33,18 +41,27 @@ type Pool struct {
 	cancelFunc    context.CancelFunc
 	external      External
 	storage       Storage
+	log           Log
 }
 
 // NewPool инициализирует новый пул с заданными задачами и
 
-func NewPool(tasks []*Task, concurrency int, external External, storage Storage) *Pool {
+func NewPool(tasks []*Task, concurrency func() string, external External, storage Storage, log Log) *Pool {
+
+	conc, err := strconv.Atoi(concurrency())
+	if err != nil {
+		log.Info("cannot convert concurrency option: ", zap.Error(err))
+		conc = 5
+	}
+
 	return &Pool{
 		Tasks:       tasks,
-		concurrency: concurrency,
+		concurrency: conc,
 		collector:   make(chan *Task, 1000),
 		results:     make(chan interface{}, 1000),
 		external:    external,
 		storage:     storage,
+		log:         log,
 	}
 }
 
