@@ -29,10 +29,17 @@ type Pool struct {
 	runBackground chan bool
 	wg            sync.WaitGroup
 	log           Log
+	taskInterval  int
 }
 
 // NewPool initializes a new pool with the given tasks
-func NewPool(tasks []*Task, concurrency func() string, log Log) *Pool {
+func NewPool(tasks []*Task, concurrency func() string, log Log, TaskExecutionInterval func() string) *Pool {
+
+	taskInterval, err := strconv.Atoi(TaskExecutionInterval())
+	if err != nil {
+		log.Info("cannot convert concurrency option: ", zap.Error(err))
+		taskInterval = 3000
+	}
 
 	conc, err := strconv.Atoi(concurrency())
 	if err != nil {
@@ -41,10 +48,11 @@ func NewPool(tasks []*Task, concurrency func() string, log Log) *Pool {
 	}
 
 	return &Pool{
-		Tasks:       tasks,
-		concurrency: conc,
-		collector:   make(chan *Task, 1000),
-		log:         log,
+		Tasks:        tasks,
+		concurrency:  conc,
+		collector:    make(chan *Task, 1000),
+		log:          log,
+		taskInterval: taskInterval,
 	}
 }
 
@@ -73,7 +81,7 @@ func (p *Pool) RunBackground() {
 	go func() {
 		for {
 			fmt.Print("⌛ Waiting for tasks to come in ...\n")
-			time.Sleep(3 * time.Second)
+			time.Sleep(time.Duration(p.taskInterval) * time.Millisecond)
 		}
 	}()
 

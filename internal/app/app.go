@@ -39,7 +39,8 @@ func Run() error {
 
 	// create a new workerpool for concurrency task processing
 	var allTask []*workerpool.Task
-	pool := workerpool.NewPool(allTask, option.Concurrency, nLogger)
+	pool := workerpool.NewPool(allTask, option.Concurrency,
+		nLogger, option.TaskExecutionInterval)
 
 	// create a new NewJWTAuthz for user authorization
 	authz := authz.NewJWTAuthz(option.JWTSigningKey(), nLogger)
@@ -58,7 +59,8 @@ func Run() error {
 	extcontr := controllers.NewExtController(memoryStorage,
 		option.AccrualSystemAddress, nLogger)
 
-	accruelServise := accruel.NewAccrualService(extcontr, pool, memoryStorage, nLogger)
+	accruelServise := accruel.NewAccrualService(extcontr, pool, memoryStorage,
+		nLogger, option.TaskExecutionInterval)
 	accruelServise.Start()
 
 	r := chi.NewRouter()

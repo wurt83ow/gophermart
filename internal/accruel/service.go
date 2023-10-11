@@ -3,6 +3,7 @@ package accruel
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -32,22 +33,31 @@ type Pool interface {
 }
 
 type AccrualService struct {
-	results    chan interface{}
-	wg         sync.WaitGroup
-	cancelFunc context.CancelFunc
-	external   External
-	pool       Pool
-	storage    Storage
-	log        Log
+	results      chan interface{}
+	wg           sync.WaitGroup
+	cancelFunc   context.CancelFunc
+	external     External
+	pool         Pool
+	storage      Storage
+	log          Log
+	taskInterval int
 }
 
-func NewAccrualService(external External, pool Pool, storage Storage, log Log) *AccrualService {
+func NewAccrualService(external External, pool Pool, storage Storage, log Log, TaskExecutionInterval func() string) *AccrualService {
+
+	taskInterval, err := strconv.Atoi(TaskExecutionInterval())
+	if err != nil {
+		log.Info("cannot convert concurrency option: ", zap.Error(err))
+		taskInterval = 3000
+	}
+
 	return &AccrualService{
-		results:  make(chan interface{}, 1000),
-		external: external,
-		pool:     pool,
-		storage:  storage,
-		log:      log,
+		results:      make(chan interface{}, 1000),
+		external:     external,
+		pool:         pool,
+		storage:      storage,
+		log:          log,
+		taskInterval: taskInterval,
 	}
 }
 
@@ -67,7 +77,7 @@ func (a *AccrualService) Stop() {
 
 func (a *AccrualService) UpdateOrders(ctx context.Context) {
 
-	t := time.NewTicker(3 * time.Second)
+	t := time.NewTicker(time.Duration(a.taskInterval) * time.Millisecond)
 
 	result := make([]models.ExtRespOrder, 0)
 

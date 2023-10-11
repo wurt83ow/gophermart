@@ -6,12 +6,9 @@ import (
 )
 
 type Options struct {
-	flagRunAddr              string
-	flagLogLevel             string
-	flagDataBaseDSN          string
-	flagJWTSigningKey        string
-	flagAccrualSystemAddress string
-	flagConcurrency          string
+	flagRunAddr, flagLogLevel, flagDataBaseDSN,
+	flagJWTSigningKey, flagAccrualSystemAddress,
+	flagConcurrency, flagTaskExecutionInterval string
 }
 
 func NewOptions() *Options {
@@ -27,6 +24,7 @@ func (o *Options) ParseFlags() {
 	regStringVar(&o.flagJWTSigningKey, "j", "test_key", "jwt signing key")
 	regStringVar(&o.flagAccrualSystemAddress, "r", ":8082", "acrual system address")
 	regStringVar(&o.flagConcurrency, "c", "5", "Concurrency")
+	regStringVar(&o.flagTaskExecutionInterval, "i", "3000", "Task execution interval in milliseconds")
 
 	// parse the arguments passed to the server into registered variables
 	flag.Parse()
@@ -55,6 +53,10 @@ func (o *Options) ParseFlags() {
 		o.flagConcurrency = envConcurrency
 	}
 
+	if envTaskExecutionInterval := os.Getenv("TASK_EXECUTION_INTERVAL"); envTaskExecutionInterval != "" {
+		o.flagTaskExecutionInterval = envTaskExecutionInterval
+	}
+
 }
 
 func (o *Options) RunAddr() string {
@@ -79,6 +81,10 @@ func (o *Options) AccrualSystemAddress() string {
 
 func (o *Options) Concurrency() string {
 	return getStringFlag("c")
+}
+
+func (o *Options) TaskExecutionInterval() string {
+	return getStringFlag("i")
 }
 
 func regStringVar(p *string, name string, value string, usage string) {
