@@ -420,6 +420,15 @@ func (kp *BDKeeper) ExecuteWithdraw(withdraw models.DataWithdraw) error {
 	defer tx.Rollback()
 
 	Args := []interface{}{withdraw.UserID}
+
+	// 1.Создаю дополнительный select, чтобы заблокировать все записи
+	// покупателя для изменения, так как "FOR UPDATE" не работате со 
+	// сгруппированными строками. 
+	// 2.Получаю таблицу всех баллов по покупателю в разрезе заказов, 
+	// а так же, в колонке user_accruel все баллы по покупателю в целом.
+	// 3. Чтобы получить все баллы покупателя соединим сгруппированную таблицу 
+	// баллов по заказам со вложенным запросом).
+	// 4. Упорядочим строки по дате заказа (получим дату дополнительным левым соединением) 
 	sql := `
 	WITH _orders AS (
 		SELECT
@@ -487,10 +496,14 @@ func (kp *BDKeeper) ExecuteWithdraw(withdraw models.DataWithdraw) error {
 			return err
 		}
 
+		// Если сумма всех накопленных баллов пользователя меньше, чем
+		// сумма запрошенная к списанию, то вернем ошибку
 		if m.UserAccrual < withdraw.Sum {
 			return storage.ErrInsufficient
 		}
 
+		//создаем строки с минусом для каждой строки заказа
+		// и вычитаем сумму списания из "ОсталосьСписать"
 		accrual := float32(math.Min(float64(leftWrite), float64(m.Accrual)))
 		leftWrite -= accrual
 
@@ -505,6 +518,7 @@ func (kp *BDKeeper) ExecuteWithdraw(withdraw models.DataWithdraw) error {
 		idx++
 	}
 
+	// Запишем набор на списание баллов с минусом. 
 	sql = `
 	INSERT INTO savings_account (user_id, processed_at, id_order_in, id_order_out, accrual)
     VALUES %s`
@@ -515,6 +529,9 @@ func (kp *BDKeeper) ExecuteWithdraw(withdraw models.DataWithdraw) error {
 		return err
 	}
 
+	// На всякий случай, после записи нашего набора, проверим остаток по покупателю в целом
+	// и если он вдруг окажется меньше нуля, то вернем ошибку, следовательно не произойдет фиксация 
+	// транзакции, она будет откачена и запись в базу отменена.  	 
 	sql = `
 	SELECT
 		SUM(accrual) AS accrual
