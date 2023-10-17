@@ -646,7 +646,6 @@ func (kp *BDKeeper) Ping() bool {
 
 	return true
 }
-//
 
 func (kp *BDKeeper) Close() bool {
 	kp.conn.Close()
