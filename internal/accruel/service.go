@@ -123,7 +123,7 @@ func (a *AccrualService) CreateOrdersTask(orders []string) {
 		taskID := o
 		task = workerpool.NewTask(func(data interface{}) error {
 			order, ok := data.(string)
-			if !ok { // type assertion failed
+			if ok { // type assertion failed
 				orderdata, err := a.external.GetExtOrderAccruel(order)
 				if err != nil {
 					return err
