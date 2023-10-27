@@ -31,7 +31,7 @@ type Storage interface {
 	GetUserWithdrawals(string) ([]models.DataWithdraw, error)
 	GetUserBalance(string) (models.DataBalance, error)
 	GetBaseConnection() bool
-	ExecuteWithdraw(models.DataWithdraw) error
+	Withdraw(models.DataWithdraw) error
 }
 
 type Options interface {
@@ -333,7 +333,7 @@ func (h *BaseController) GetUserBalance(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusOK) //code 200
 }
 
-func (h *BaseController) ExecuteWithdraw(w http.ResponseWriter, r *http.Request) {
+func (h *BaseController) Withdraw(w http.ResponseWriter, r *http.Request) {
 	metod := zap.String("method", r.Method)
 
 	userID, StatusOK := r.Context().Value(keyUserID).(string)
@@ -361,7 +361,7 @@ func (h *BaseController) ExecuteWithdraw(w http.ResponseWriter, r *http.Request)
 	}
 
 	regReq.UserID = userID
-	err = h.storage.ExecuteWithdraw(regReq)
+	err = h.storage.Withdraw(regReq)
 	if err != nil {
 		if err == storage.ErrInsufficient {
 			w.WriteHeader(http.StatusPaymentRequired) //code 402

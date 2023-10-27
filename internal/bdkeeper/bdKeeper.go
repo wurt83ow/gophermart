@@ -107,8 +107,8 @@ func (kp *BDKeeper) GetUserWithdrawals(userID string) ([]models.DataWithdraw, er
 		processed_at
 	ORDER BY
 		processed_at`
-	rows, err := kp.conn.QueryContext(ctx, sql, userID)
 
+	rows, err := kp.conn.QueryContext(ctx, sql, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -119,6 +119,7 @@ func (kp *BDKeeper) GetUserWithdrawals(userID string) ([]models.DataWithdraw, er
 
 	for rows.Next() {
 		m := models.DataWithdraw{}
+
 		err := rows.Scan(&m.Order, &m.Sum, &m.Date)
 		if err != nil {
 			return nil, err
@@ -163,6 +164,7 @@ func (kp *BDKeeper) GetUserBalance(userID string) (models.DataBalance, error) {
 
 	// read the values from the database record into the corresponding fields of the structure
 	var m models.DataBalance
+
 	err := row.Scan(&m.Current, &m.Withdrawn)
 	if err != nil {
 		kp.log.Info("row scan error: ", zap.Error(err))
@@ -186,6 +188,7 @@ func (kp *BDKeeper) GetOpenOrders() ([]string, error) {
 		AND status <> 'PROCESSED'
 		AND number <> ''
 	LIMIT 100`
+
 	rows, err := kp.conn.QueryContext(ctx, sql)
 	if err != nil {
 		return nil, err
@@ -227,6 +230,7 @@ func (kp *BDKeeper) LoadOrders() (storage.StorageOrders, error) {
 		orders AS o
 		LEFT JOIN savings_account AS s ON o.order_id = s.id_order_in
 			AND o.date = s.processed_at`
+
 	rows, err := kp.conn.QueryContext(ctx, sql)
 	if err != nil {
 		return nil, err
@@ -267,6 +271,7 @@ func (kp *BDKeeper) LoadUsers() (storage.StorageUsers, error) {
 		hash
 	FROM
 		users`
+
 	rows, err := kp.conn.QueryContext(ctx, sql)
 	if err != nil {
 		return nil, err
@@ -326,9 +331,11 @@ func (kp *BDKeeper) SaveOrder(key string, order models.DataOrder) (models.DataOr
 
 	// read the values from the database record into the corresponding fields of the structure
 	var m models.DataOrder
+
 	nerr := row.Scan(&m.UUID, &m.Number, &m.Date, &m.Status, &m.UserID)
 	if nerr != nil {
 		kp.log.Info("row scan error: ", zap.Error(err))
+
 		return order, nerr
 	}
 
@@ -389,6 +396,7 @@ func (kp *BDKeeper) SaveUser(key string, data models.DataUser) (models.DataUser,
 
 	// read the values from the database record into the corresponding fields of the structure
 	var m models.DataUser
+
 	nerr := row.Scan(&m.UUID, &m.Email, &m.Hash, &m.Name)
 	if nerr != nil {
 		return data, nerr
@@ -407,7 +415,7 @@ func (kp *BDKeeper) SaveUser(key string, data models.DataUser) (models.DataUser,
 	return m, nil
 }
 
-func (kp *BDKeeper) ExecuteWithdraw(withdraw models.DataWithdraw) error {
+func (kp *BDKeeper) Withdraw(withdraw models.DataWithdraw) error {
 	ctx := context.Background()
 
 	// start the transaction
@@ -483,6 +491,7 @@ func (kp *BDKeeper) ExecuteWithdraw(withdraw models.DataWithdraw) error {
 
 	leftWrite := withdraw.Sum
 	idx := 0
+
 	for rows.Next() {
 		if leftWrite <= 0 {
 			break
