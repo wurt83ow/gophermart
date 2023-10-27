@@ -121,7 +121,7 @@ func (h *BaseController) Register(w http.ResponseWriter, r *http.Request) {
 		// login is already taken
 		if err == storage.ErrConflict {
 			h.log.Info("login is already taken: ", zap.Error(err))
-
+			w.WriteHeader(http.StatusConflict) //code 409
 		} else {
 			h.log.Info("error insert user to storage: ", zap.Error(err))
 			w.WriteHeader(http.StatusInternalServerError) // code 500
@@ -152,7 +152,7 @@ func (h *BaseController) Login(w http.ResponseWriter, r *http.Request) {
 	user, err := h.storage.GetUser(rb.Email)
 	if err != nil {
 		// incorrect login/password pair
-
+		w.WriteHeader(http.StatusUnauthorized) //code 401
 		h.log.Info("incorrect login/password pair, request status 401: ", metod)
 		return
 	}
@@ -168,7 +168,7 @@ func (h *BaseController) Login(w http.ResponseWriter, r *http.Request) {
 		})
 		if err != nil {
 			// internal server error
-
+			w.WriteHeader(http.StatusInternalServerError) //code 500
 			h.log.Info("internal server error, request status 500: ", metod)
 			return
 		}
@@ -182,13 +182,13 @@ func (h *BaseController) Login(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		// internal server error
-
+		w.WriteHeader(http.StatusInternalServerError) //code 500
 		h.log.Info("internal server error, request status 500: ", metod)
 		return
 	}
 
 	// incorrect login/password pair
-
+	w.WriteHeader(http.StatusUnauthorized) //code 401
 	h.log.Info("incorrect login/password pair, request status 401: ", metod)
 }
 
@@ -209,7 +209,7 @@ func (h *BaseController) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	userID, StatusOK := r.Context().Value(keyUserID).(string)
 	if !StatusOK || userID == "" {
 		// user is not authenticated
-
+		w.WriteHeader(http.StatusUnauthorized) //code 401
 		h.log.Info("user is not authenticated, request status 401: ", metod)
 		return
 	}
@@ -218,7 +218,7 @@ func (h *BaseController) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil || len(body) == 0 {
 		// invalid request format
-
+		w.WriteHeader(http.StatusBadRequest) //code 400
 		h.log.Info("invalid request format, request status 400: ", metod)
 		return
 	}
@@ -230,7 +230,7 @@ func (h *BaseController) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	ord, err := strconv.Atoi(orderNum)
 	if err != nil || !h.valid(ord) {
 		// incorrect order number format
-
+		w.WriteHeader(http.StatusUnprocessableEntity) //code 422
 		h.log.Info("incorrect order number format, request status 422: ", metod)
 		return
 	}
@@ -247,24 +247,24 @@ func (h *BaseController) CreateOrder(w http.ResponseWriter, r *http.Request) {
 			// The order number has already been uploaded
 			if order.UserID == userID {
 				// this user
-
+				w.WriteHeader(http.StatusOK) //code 200
 			} else {
 				// another user
-
+				w.WriteHeader(http.StatusConflict) //code 409
 				h.log.Info(`The order number has already been uploaded 
 					another user, request status 409: `, metod)
 			}
 			return
 		} else {
 			// internal server error
-
+			w.WriteHeader(http.StatusInternalServerError) //code 500
 			h.log.Info("internal server error, request status 500: ", metod)
 			return
 		}
 	}
 
 	// new order number accepted for processing
-
+	w.WriteHeader(http.StatusAccepted) //code 202
 }
 
 func (h *BaseController) GetUserOrders(w http.ResponseWriter, r *http.Request) {
@@ -275,7 +275,7 @@ func (h *BaseController) GetUserOrders(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(keyUserID).(string)
 	if !ok || len(userID) == 0 {
 		// user is not authorized
-
+		w.WriteHeader(http.StatusUnauthorized) //401
 		h.log.Info("user is not authenticated, request status 401: ", metod)
 		return
 	}
@@ -293,12 +293,12 @@ func (h *BaseController) GetUserOrders(w http.ResponseWriter, r *http.Request) {
 	enc := json.NewEncoder(w)
 	if err := enc.Encode(orders); err != nil {
 		// Internal Server Error
-
+		w.WriteHeader(http.StatusInternalServerError) //code 500
 		h.log.Info("Internal Server Error: ", zap.Error(err))
 		return
 	}
 
-
+	w.WriteHeader(http.StatusOK) //code 200
 }
 
 func (h *BaseController) GetUserBalance(w http.ResponseWriter, r *http.Request) {
@@ -316,7 +316,7 @@ func (h *BaseController) GetUserBalance(w http.ResponseWriter, r *http.Request) 
 
 	balance, err := h.storage.GetUserBalance(userID)
 	if err != nil {
-
+		w.WriteHeader(http.StatusUnauthorized) //401
 		h.log.Info("Internal Server Error: ", zap.Error(err))
 		return
 	}
@@ -325,12 +325,12 @@ func (h *BaseController) GetUserBalance(w http.ResponseWriter, r *http.Request) 
 	enc := json.NewEncoder(w)
 	if err := enc.Encode(balance); err != nil {
 		// Internal Server Error
-
+		w.WriteHeader(http.StatusInternalServerError) //code 500
 		h.log.Info("Internal Server Error: ", zap.Error(err))
 		return
 	}
 
-
+	w.WriteHeader(http.StatusOK) //code 200
 }
 
 func (h *BaseController) ExecuteWithdraw(w http.ResponseWriter, r *http.Request) {
@@ -339,7 +339,7 @@ func (h *BaseController) ExecuteWithdraw(w http.ResponseWriter, r *http.Request)
 	userID, StatusOK := r.Context().Value(keyUserID).(string)
 	if !StatusOK || userID == "" {
 		// user is not authenticated
-
+		w.WriteHeader(http.StatusUnauthorized) //code 401
 		h.log.Info("user is not authenticated, request status 401: ", metod)
 		return
 	}
@@ -355,7 +355,7 @@ func (h *BaseController) ExecuteWithdraw(w http.ResponseWriter, r *http.Request)
 	ord, err := strconv.Atoi(regReq.Order)
 	if err != nil || !h.valid(ord) {
 		// incorrect order number format
-
+		w.WriteHeader(http.StatusUnprocessableEntity) //code 422
 		h.log.Info("incorrect order number format, request status 422: ", metod)
 		return
 	}
@@ -364,7 +364,7 @@ func (h *BaseController) ExecuteWithdraw(w http.ResponseWriter, r *http.Request)
 	err = h.storage.ExecuteWithdraw(regReq)
 	if err != nil {
 		if err == storage.ErrInsufficient {
-
+			w.WriteHeader(http.StatusPaymentRequired) //code 402
 			h.log.Info("there are insufficient funds in the account, request status 402: ", metod)
 		} else {
 			h.log.Info("cannot decode request JSON body: ", zap.Error(err))
@@ -374,7 +374,7 @@ func (h *BaseController) ExecuteWithdraw(w http.ResponseWriter, r *http.Request)
 	}
 
 	// new order number accepted for processing
-
+	w.WriteHeader(http.StatusOK) //code 200
 }
 
 func (h *BaseController) GetUserWithdrawals(w http.ResponseWriter, r *http.Request) {
@@ -385,14 +385,14 @@ func (h *BaseController) GetUserWithdrawals(w http.ResponseWriter, r *http.Reque
 	userID, ok := r.Context().Value(keyUserID).(string)
 	if !ok || len(userID) == 0 {
 		// user is not authorized
-
+		w.WriteHeader(http.StatusUnauthorized) //401
 		h.log.Info("user is not authenticated, request status 401: ", metod)
 		return
 	}
 
 	withdrawals, err := h.storage.GetUserWithdrawals(userID)
 	if err != nil {
-
+		w.WriteHeader(http.StatusInternalServerError) //code 500
 		h.log.Info("Internal Server Error: ", zap.Error(err))
 		return
 	}
@@ -408,12 +408,12 @@ func (h *BaseController) GetUserWithdrawals(w http.ResponseWriter, r *http.Reque
 	enc := json.NewEncoder(w)
 	if err := enc.Encode(withdrawals); err != nil {
 		// Internal Server Error
-
+		w.WriteHeader(http.StatusInternalServerError) //code 500
 		h.log.Info("Internal Server Error: ", zap.Error(err))
 		return
 	}
 
-
+	w.WriteHeader(http.StatusOK) //code 200
 }
 
 // Valid check number is valid or not based on Luhn algorithm.
