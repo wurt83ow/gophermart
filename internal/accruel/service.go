@@ -55,6 +55,8 @@ func NewAccrualService(external External, pool Pool, storage Storage,
 
 	return &AccrualService{
 		results:      make(chan interface{}),
+		wg:           sync.WaitGroup{},
+		cancelFunc:   nil,
 		external:     external,
 		pool:         pool,
 		storage:      storage,
@@ -93,7 +95,10 @@ func (a *AccrualService) UpdateOrders(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case job := <-a.results:
-			result = append(result, job.(models.ExtRespOrder))
+			j, ok := job.(models.ExtRespOrder)
+			if ok {
+				result = append(result, j)
+			}
 		case <-t.C:
 			orders, err := a.storage.GetOpenOrders()
 			if err != nil {
@@ -130,10 +135,9 @@ func (a *AccrualService) CreateOrdersTask(orders []string) {
 			if ok { // type assertion failed
 				orderdata, err := a.external.GetExtOrderAccruel(order)
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to create order task: %w", err)
 				}
-
-				fmt.Printf("Task %s processed\n", order)
+				a.log.Info("processed task: ", zap.String("order", order))
 				a.AddResults(orderdata)
 			}
 
