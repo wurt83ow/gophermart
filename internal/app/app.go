@@ -1,7 +1,9 @@
 package app
 
 import (
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi"
 	"github.com/wurt83ow/gophermart/internal/accruel"
@@ -24,7 +26,7 @@ func Run() error {
 	// get a new logger
 	nLogger, err := logger.NewLogger(option.LogLevel())
 	if err != nil {
-		return err
+		return fmt.Errorf("an error occurred when creating a new logger: %w", err)
 	}
 
 	// initialize the keeper instance
@@ -72,5 +74,16 @@ func Run() error {
 	flagRunAddr := option.RunAddr()
 	nLogger.Info("Running server", zap.String("address", flagRunAddr))
 
-	return http.ListenAndServe(flagRunAddr, r)
+	server := &http.Server{
+		Addr:              flagRunAddr,
+		Handler:           r,
+		ReadHeaderTimeout: 3 * time.Second,
+	}
+
+	err = server.ListenAndServe()
+	if err != nil {
+		return fmt.Errorf("failed to start server : %w", err)
+	}
+
+	return nil
 }
