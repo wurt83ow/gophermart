@@ -12,6 +12,8 @@ import (
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
+
+	// Register some standard stuff.
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/google/uuid"
 	"github.com/jackc/pgerrcode"
@@ -118,12 +120,13 @@ func (kp *BDKeeper) GetUserWithdrawals(userID string) ([]models.DataWithdraw, er
 	result := make([]models.DataWithdraw, 0)
 
 	for rows.Next() {
-		m := models.DataWithdraw{}
+		var m models.DataWithdraw
 
 		err := rows.Scan(&m.Order, &m.Sum, &m.Date)
 		if err != nil {
 			return nil, err
 		}
+
 		m.DateRFC = m.Date.Format(time.RFC3339)
 		result = append(result, m)
 	}
@@ -168,6 +171,7 @@ func (kp *BDKeeper) GetUserBalance(userID string) (models.DataBalance, error) {
 	err := row.Scan(&m.Current, &m.Withdrawn)
 	if err != nil {
 		kp.log.Info("row scan error: ", zap.Error(err))
+
 		return models.DataBalance{}, err
 	}
 
@@ -201,13 +205,15 @@ func (kp *BDKeeper) GetOpenOrders() ([]string, error) {
 	defer rows.Close()
 
 	orders := make([]string, 0)
+
 	for rows.Next() {
-		m := models.ExtRespOrder{}
+		var m models.ExtRespOrder
 
 		err := rows.Scan(&m.Order)
 		if err != nil {
 			return nil, err
 		}
+
 		orders = append(orders, m.Order)
 	}
 
@@ -243,8 +249,9 @@ func (kp *BDKeeper) LoadOrders() (storage.StorageOrders, error) {
 	defer rows.Close()
 
 	data := make(storage.StorageOrders)
+
 	for rows.Next() {
-		m := models.DataOrder{}
+		var m models.DataOrder
 
 		err := rows.Scan(&m.UUID, &m.Number,
 			&m.Status, &m.Date, &m.Accrual, &m.UserID)
@@ -284,13 +291,15 @@ func (kp *BDKeeper) LoadUsers() (storage.StorageUsers, error) {
 	defer rows.Close()
 
 	data := make(storage.StorageUsers)
+
 	for rows.Next() {
-		m := models.DataUser{}
+		var m models.DataUser
 
 		err := rows.Scan(&m.UUID, &m.Name, &m.Email, &m.Hash)
 		if err != nil {
 			return nil, err
 		}
+
 		data[m.Email] = m
 	}
 
@@ -301,6 +310,7 @@ func (kp *BDKeeper) SaveOrder(key string, order models.DataOrder) (models.DataOr
 	ctx := context.Background()
 
 	var id string
+
 	if order.UUID == "" {
 		neuuid := uuid.New()
 		id = neuuid.String()
@@ -346,6 +356,7 @@ func (kp *BDKeeper) SaveOrder(key string, order models.DataOrder) (models.DataOr
 
 			return m, storage.ErrConflict
 		}
+
 		return m, err
 	}
 
@@ -356,6 +367,7 @@ func (kp *BDKeeper) SaveUser(key string, data models.DataUser) (models.DataUser,
 	ctx := context.Background()
 
 	var id string
+
 	if data.UUID == "" {
 		neuuid := uuid.New()
 		id = neuuid.String()
@@ -409,6 +421,7 @@ func (kp *BDKeeper) SaveUser(key string, data models.DataUser) (models.DataUser,
 
 			return m, storage.ErrConflict
 		}
+
 		return m, err
 	}
 
@@ -475,6 +488,7 @@ func (kp *BDKeeper) Withdraw(withdraw models.DataWithdraw) error {
 		nq.user_accrual
 	ORDER BY
 		_orders.date ASC`
+
 	rows, err := tx.QueryContext(ctx, sql, Args...)
 	if err != nil {
 		return err
@@ -496,7 +510,8 @@ func (kp *BDKeeper) Withdraw(withdraw models.DataWithdraw) error {
 		if leftWrite <= 0 {
 			break
 		}
-		m := models.DataOrder{}
+
+		var m models.DataOrder
 
 		err := rows.Scan(&m.UserID, &m.Number,
 			&m.Date, &m.Accrual, &m.UserAccrual)
@@ -518,6 +533,7 @@ func (kp *BDKeeper) Withdraw(withdraw models.DataWithdraw) error {
 		valueStrings = append(valueStrings,
 			fmt.Sprintf("($%d, $%d, $%d, $%d, $%d)",
 				idx*5+1, idx*5+2, idx*5+3, idx*5+4, idx*5+5))
+
 		valueArgs = append(valueArgs, withdraw.UserID)
 		valueArgs = append(valueArgs, time.Now())
 		valueArgs = append(valueArgs, m.Number)
@@ -592,6 +608,7 @@ func (kp *BDKeeper) UpdateOrderStatus(result []models.ExtRespOrder) error {
 	WHERE
 		orders.number = _data.number`
 	sql = fmt.Sprintf(sql, strings.Join(valueStrings, ","))
+
 	_, err := kp.conn.ExecContext(ctx, sql, valueArgs...)
 	if err != nil {
 		return err
@@ -634,6 +651,7 @@ func (kp *BDKeeper) InsertAccruel(orders map[string]models.ExtRespOrder) error {
 	WHERE
 		SA.id_order_in IS NULL`
 	sql = fmt.Sprintf(sql, strings.Join(valueStrings, ","))
+
 	_, err := kp.conn.ExecContext(ctx, sql, valueArgs...)
 	if err != nil {
 		return err
