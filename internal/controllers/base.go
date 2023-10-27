@@ -90,11 +90,13 @@ func (h *BaseController) Route() *chi.Mux {
 }
 
 func (h *BaseController) Register(w http.ResponseWriter, r *http.Request) {
-	regReq := models.RequestUser{}
+	regReq := new(models.RequestUser)
 	dec := json.NewDecoder(r.Body)
+
 	if err := dec.Decode(&regReq); err != nil {
 		h.log.Info("cannot decode request JSON body: ", zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest) // code 400
+
 		return
 	}
 
