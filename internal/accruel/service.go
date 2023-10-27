@@ -43,15 +43,18 @@ type AccrualService struct {
 	taskInterval int
 }
 
-func NewAccrualService(external External, pool Pool, storage Storage, log Log, taskInterval func() string) *AccrualService {
+func NewAccrualService(external External, pool Pool, storage Storage,
+	log Log, taskInterval func() string,
+) *AccrualService {
 	taskInt, err := strconv.Atoi(taskInterval())
 	if err != nil {
 		log.Info("cannot convert concurrency option: ", zap.Error(err))
+
 		taskInt = 3000
 	}
 
 	return &AccrualService{
-		results:      make(chan interface{}, 1000),
+		results:      make(chan interface{}),
 		external:     external,
 		pool:         pool,
 		storage:      storage,
