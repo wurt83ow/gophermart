@@ -12,8 +12,6 @@ import (
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
-
-	// Register some standard stuff.
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/google/uuid"
 	"github.com/jackc/pgerrcode"
@@ -112,7 +110,7 @@ func (kp *BDKeeper) GetUserWithdrawals(userID string) ([]models.DataWithdraw, er
 
 	rows, err := kp.conn.QueryContext(ctx, sql, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get user withdrawls by userID: %w", err)
 	}
 
 	defer rows.Close()
@@ -124,7 +122,7 @@ func (kp *BDKeeper) GetUserWithdrawals(userID string) ([]models.DataWithdraw, er
 
 		err := rows.Scan(&m.Order, &m.Sum, &m.Date)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get user withdrawls by userID: %w", err)
 		}
 
 		m.DateRFC = m.Date.Format(time.RFC3339)
@@ -132,7 +130,7 @@ func (kp *BDKeeper) GetUserWithdrawals(userID string) ([]models.DataWithdraw, er
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get user withdrawls by userID: %w", err)
 	}
 
 	return result, nil
@@ -172,10 +170,10 @@ func (kp *BDKeeper) GetUserBalance(userID string) (models.DataBalance, error) {
 	if err != nil {
 		kp.log.Info("row scan error: ", zap.Error(err))
 
-		return models.DataBalance{}, err
+		return models.DataBalance{}, fmt.Errorf("failed to get user balance by userID: %w", err)
 	}
 
-	return m, err
+	return m, nil
 }
 
 func (kp *BDKeeper) GetOpenOrders() ([]string, error) {
@@ -195,11 +193,11 @@ func (kp *BDKeeper) GetOpenOrders() ([]string, error) {
 
 	rows, err := kp.conn.QueryContext(ctx, sql)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get open orders: %w", err)
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get open orders: %w", err)
 	}
 
 	defer rows.Close()
@@ -211,7 +209,7 @@ func (kp *BDKeeper) GetOpenOrders() ([]string, error) {
 
 		err := rows.Scan(&m.Order)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get open orders: %w", err)
 		}
 
 		orders = append(orders, m.Order)
@@ -239,11 +237,11 @@ func (kp *BDKeeper) LoadOrders() (storage.StorageOrders, error) {
 
 	rows, err := kp.conn.QueryContext(ctx, sql)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load orders: %w", err)
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load orders: %w", err)
 	}
 
 	defer rows.Close()
@@ -256,7 +254,7 @@ func (kp *BDKeeper) LoadOrders() (storage.StorageOrders, error) {
 		err := rows.Scan(&m.UUID, &m.Number,
 			&m.Status, &m.Date, &m.Accrual, &m.UserID)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to load orders: %w", err)
 		}
 
 		m.DateRFC = m.Date.Format(time.RFC3339)
@@ -281,11 +279,11 @@ func (kp *BDKeeper) LoadUsers() (storage.StorageUsers, error) {
 
 	rows, err := kp.conn.QueryContext(ctx, sql)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load users: %w", err)
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load users: %w", err)
 	}
 
 	defer rows.Close()
@@ -297,7 +295,7 @@ func (kp *BDKeeper) LoadUsers() (storage.StorageUsers, error) {
 
 		err := rows.Scan(&m.UUID, &m.Name, &m.Email, &m.Hash)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to load users: %w", err)
 		}
 
 		data[m.Email] = m
@@ -346,7 +344,7 @@ func (kp *BDKeeper) SaveOrder(key string, order models.DataOrder) (models.DataOr
 	if nerr != nil {
 		kp.log.Info("row scan error: ", zap.Error(err))
 
-		return order, nerr
+		return order, fmt.Errorf("failed to save order: %w", nerr)
 	}
 
 	if err != nil {
@@ -357,7 +355,7 @@ func (kp *BDKeeper) SaveOrder(key string, order models.DataOrder) (models.DataOr
 			return m, storage.ErrConflict
 		}
 
-		return m, err
+		return m, fmt.Errorf("failed to save order: %w", err)
 	}
 
 	return m, nil
@@ -411,7 +409,7 @@ func (kp *BDKeeper) SaveUser(key string, data models.DataUser) (models.DataUser,
 
 	nerr := row.Scan(&m.UUID, &m.Email, &m.Hash, &m.Name)
 	if nerr != nil {
-		return data, nerr
+		return data, fmt.Errorf("failed to save user: %w", nerr)
 	}
 
 	if err != nil {
@@ -422,7 +420,7 @@ func (kp *BDKeeper) SaveUser(key string, data models.DataUser) (models.DataUser,
 			return m, storage.ErrConflict
 		}
 
-		return m, err
+		return m, fmt.Errorf("failed to save user: %w", err)
 	}
 
 	return m, nil
@@ -434,7 +432,7 @@ func (kp *BDKeeper) Withdraw(withdraw models.DataWithdraw) error {
 	// start the transaction
 	tx, err := kp.conn.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to withdraw: %w", err)
 	}
 
 	// if the commit is unsuccessful, all changes to the transaction will be rolled back
@@ -491,11 +489,11 @@ func (kp *BDKeeper) Withdraw(withdraw models.DataWithdraw) error {
 
 	rows, err := tx.QueryContext(ctx, sql, Args...)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to withdraw: %w", err)
 	}
 
 	if rows.Err() != nil {
-		return err
+		return fmt.Errorf("failed to withdraw: %w", err)
 	}
 
 	defer rows.Close()
@@ -516,7 +514,7 @@ func (kp *BDKeeper) Withdraw(withdraw models.DataWithdraw) error {
 		err := rows.Scan(&m.UserID, &m.Number,
 			&m.Date, &m.Accrual, &m.UserAccrual)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to withdraw: %w", err)
 		}
 
 		// Вернем ошибку, если сумма всех накопленных баллов пользователя меньше, чем
@@ -550,7 +548,7 @@ func (kp *BDKeeper) Withdraw(withdraw models.DataWithdraw) error {
 	_, err = kp.conn.ExecContext(ctx, sql, valueArgs...)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to withdraw: %w", err)
 	}
 
 	// На всякий случай, после записи нашего набора, проверим остаток по покупателю в целом
@@ -570,7 +568,7 @@ func (kp *BDKeeper) Withdraw(withdraw models.DataWithdraw) error {
 	err = row.Scan(&m.Accrual)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to withdraw: %w", err)
 	}
 
 	if m.Accrual < 0 {
@@ -611,7 +609,7 @@ func (kp *BDKeeper) UpdateOrderStatus(result []models.ExtRespOrder) error {
 
 	_, err := kp.conn.ExecContext(ctx, sql, valueArgs...)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to update order status: %w", err)
 	}
 
 	return nil
