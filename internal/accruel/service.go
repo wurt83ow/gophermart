@@ -43,11 +43,11 @@ type AccrualService struct {
 	taskInterval int
 }
 
-func NewAccrualService(external External, pool Pool, storage Storage, log Log, TaskExecutionInterval func() string) *AccrualService {
-	taskInterval, err := strconv.Atoi(TaskExecutionInterval())
+func NewAccrualService(external External, pool Pool, storage Storage, log Log, taskInterval func() string) *AccrualService {
+	taskInt, err := strconv.Atoi(taskInterval())
 	if err != nil {
 		log.Info("cannot convert concurrency option: ", zap.Error(err))
-		taskInterval = 3000
+		taskInt = 3000
 	}
 
 	return &AccrualService{
@@ -56,7 +56,7 @@ func NewAccrualService(external External, pool Pool, storage Storage, log Log, T
 		pool:         pool,
 		storage:      storage,
 		log:          log,
-		taskInterval: taskInterval,
+		taskInterval: taskInt,
 	}
 }
 
@@ -80,6 +80,7 @@ func (a *AccrualService) UpdateOrders(ctx context.Context) {
 	result := make([]models.ExtRespOrder, 0)
 
 	var dmx sync.RWMutex
+
 	dmx.RLock()
 	defer dmx.RUnlock()
 
@@ -94,6 +95,7 @@ func (a *AccrualService) UpdateOrders(ctx context.Context) {
 			if err != nil {
 				return
 			}
+
 			a.CreateOrdersTask(orders)
 
 			if len(result) != 0 {
@@ -120,14 +122,16 @@ func (a *AccrualService) CreateOrdersTask(orders []string) {
 	for _, o := range orders {
 		taskID := o
 		task = workerpool.NewTask(func(data interface{}) error {
-			order := data.(string)
-			orderdata, err := a.external.GetExtOrderAccruel(order)
-			if err != nil {
-				return err
-			}
+			order, ok := data.(string)
+			if !ok { // type assertion failed
+				orderdata, err := a.external.GetExtOrderAccruel(order)
+				if err != nil {
+					return err
+				}
 
-			fmt.Printf("Task %s processed\n", order)
-			a.AddResults(orderdata)
+				fmt.Printf("Task %s processed\n", order)
+				a.AddResults(orderdata)
+			}
 			return nil
 		}, taskID)
 		a.pool.AddTask(task)
@@ -145,6 +149,7 @@ func (a *AccrualService) doWork(result []models.ExtRespOrder) {
 	var dmx sync.RWMutex
 
 	orders := make(map[string]models.ExtRespOrder, 0)
+
 	for _, o := range result {
 		if o.Accrual != 0 {
 			dmx.RLock()
