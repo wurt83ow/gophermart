@@ -82,7 +82,7 @@ func (h *BaseController) Route() *chi.Mux {
 		r.Post("/api/user/orders", h.CreateOrder)
 		r.Get("/api/user/orders", h.GetUserOrders)
 		r.Get("/api/user/balance", h.GetUserBalance)
-		r.Post("/api/user/balance/withdraw", h.ExecuteWithdraw)
+		r.Post("/api/user/balance/withdraw", h.Withdraw)
 		r.Get("/api/user/withdrawals", h.GetUserWithdrawals)
 	})
 
