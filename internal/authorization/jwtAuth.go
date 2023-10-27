@@ -50,7 +50,6 @@ func NewJWTAuthz(signingKey string, log Log) *JWTAuthz {
 func (j *JWTAuthz) JWTAuthzMiddleware(log Log) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
-
 			// Grab jwt-token cookie
 			jwtCookie, err := r.Cookie("jwt-token")
 
@@ -61,7 +60,6 @@ func (j *JWTAuthz) JWTAuthzMiddleware(log Log) func(next http.Handler) http.Hand
 					userID = ""
 					log.Info("Error occurred creating a cookie", zap.Error(err))
 				}
-
 			} else {
 				log.Info("Error occurred reading cookie", zap.Error(err))
 			}

@@ -22,7 +22,6 @@ func NewLogger(level string) (*Logger, error) {
 	config.Level = lvl
 	// config.OutputPaths = []string{"stdout", "./logs/" + logFile}
 	logger, err := config.Build(zap.AddCaller())
-
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +42,7 @@ func (l Logger) Warn(msg string, fields ...zapcore.Field) {
 }
 
 func (l Logger) writer() *zap.Logger {
-	var noOpLogger = zap.NewNop()
+	noOpLogger := zap.NewNop()
 	if l.zap == nil {
 		return noOpLogger
 	}

@@ -41,7 +41,6 @@ func NewBDKeeper(dsn func() string, log Log) *BDKeeper {
 
 	conn, err := sql.Open("pgx", dsn())
 	if err != nil {
-
 		log.Info("Unable to connection to database: ", zap.Error(err))
 		return nil
 	}
@@ -68,7 +67,6 @@ func NewBDKeeper(dsn func() string, log Log) *BDKeeper {
 		fmt.Sprintf("file://%smigrations", path),
 		"postgres",
 		driver)
-
 	if err != nil {
 		log.Info("Error creating migration instance : ", zap.Error(err))
 	}
@@ -183,7 +181,6 @@ func (kp *BDKeeper) GetOpenOrders() ([]string, error) {
 		AND number <> ''
 	LIMIT 100`
 	rows, err := kp.conn.QueryContext(ctx, sql)
-
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +222,6 @@ func (kp *BDKeeper) LoadOrders() (storage.StorageOrders, error) {
 		LEFT JOIN savings_account AS s ON o.order_id = s.id_order_in
 			AND o.date = s.processed_at`
 	rows, err := kp.conn.QueryContext(ctx, sql)
-
 	if err != nil {
 		return nil, err
 	}
@@ -242,7 +238,6 @@ func (kp *BDKeeper) LoadOrders() (storage.StorageOrders, error) {
 
 		err := rows.Scan(&m.UUID, &m.Number,
 			&m.Status, &m.Date, &m.Accrual, &m.UserID)
-
 		if err != nil {
 			return nil, err
 		}
@@ -267,7 +262,6 @@ func (kp *BDKeeper) LoadUsers() (storage.StorageUsers, error) {
 	FROM
 		users`
 	rows, err := kp.conn.QueryContext(ctx, sql)
-
 	if err != nil {
 		return nil, err
 	}
@@ -491,7 +485,6 @@ func (kp *BDKeeper) ExecuteWithdraw(withdraw models.DataWithdraw) error {
 
 		err := rows.Scan(&m.UserID, &m.Number,
 			&m.Date, &m.Accrual, &m.UserAccrual)
-
 		if err != nil {
 			return err
 		}
@@ -585,7 +578,6 @@ func (kp *BDKeeper) UpdateOrderStatus(result []models.ExtRespOrder) error {
 		orders.number = _data.number`
 	sql = fmt.Sprintf(sql, strings.Join(valueStrings, ","))
 	_, err := kp.conn.ExecContext(ctx, sql, valueArgs...)
-
 	if err != nil {
 		return err
 	}
@@ -628,7 +620,6 @@ func (kp *BDKeeper) InsertAccruel(orders map[string]models.ExtRespOrder) error {
 		SA.id_order_in IS NULL`
 	sql = fmt.Sprintf(sql, strings.Join(valueStrings, ","))
 	_, err := kp.conn.ExecContext(ctx, sql, valueArgs...)
-
 	if err != nil {
 		return err
 	}

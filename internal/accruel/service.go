@@ -44,7 +44,6 @@ type AccrualService struct {
 }
 
 func NewAccrualService(external External, pool Pool, storage Storage, log Log, TaskExecutionInterval func() string) *AccrualService {
-
 	taskInterval, err := strconv.Atoi(TaskExecutionInterval())
 	if err != nil {
 		log.Info("cannot convert concurrency option: ", zap.Error(err))
@@ -61,7 +60,7 @@ func NewAccrualService(external External, pool Pool, storage Storage, log Log, T
 	}
 }
 
-// starts a worker
+// starts a worker.
 func (a *AccrualService) Start() {
 	ctx := context.Background()
 	ctx, canselFunc := context.WithCancel(ctx)
@@ -76,7 +75,6 @@ func (a *AccrualService) Stop() {
 }
 
 func (a *AccrualService) UpdateOrders(ctx context.Context) {
-
 	t := time.NewTicker(time.Duration(a.taskInterval) * time.Millisecond)
 
 	result := make([]models.ExtRespOrder, 0)
@@ -106,7 +104,7 @@ func (a *AccrualService) UpdateOrders(ctx context.Context) {
 	}
 }
 
-// AddResults adds result to pool
+// AddResults adds result to pool.
 func (a *AccrualService) AddResults(result interface{}) {
 	a.results <- result
 }
@@ -124,7 +122,6 @@ func (a *AccrualService) CreateOrdersTask(orders []string) {
 		task = workerpool.NewTask(func(data interface{}) error {
 			order := data.(string)
 			orderdata, err := a.external.GetExtOrderAccruel(order)
-
 			if err != nil {
 				return err
 			}
@@ -138,7 +135,6 @@ func (a *AccrualService) CreateOrdersTask(orders []string) {
 }
 
 func (a *AccrualService) doWork(result []models.ExtRespOrder) {
-
 	// perform a group update of the orders table (status field)
 	err := a.storage.UpdateOrderStatus(result)
 	if err != nil {
@@ -161,5 +157,4 @@ func (a *AccrualService) doWork(result []models.ExtRespOrder) {
 	if err != nil {
 		a.log.Info("errors when accruel inserting: ", zap.Error(err))
 	}
-
 }

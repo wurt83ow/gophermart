@@ -19,7 +19,7 @@ type Log interface {
 	Info(string, ...zapcore.Field)
 }
 
-// Pool
+// Pool.
 type Pool struct {
 	Tasks   []*Task
 	Workers []*Worker
@@ -32,9 +32,8 @@ type Pool struct {
 	taskInterval  int
 }
 
-// NewPool initializes a new pool with the given tasks
+// NewPool initializes a new pool with the given tasks.
 func NewPool(tasks []*Task, concurrency func() string, log Log, TaskExecutionInterval func() string) *Pool {
-
 	taskInterval, err := strconv.Atoi(TaskExecutionInterval())
 	if err != nil {
 		log.Info("cannot convert concurrency option: ", zap.Error(err))
@@ -71,12 +70,12 @@ func (p *Pool) Run() {
 	p.wg.Wait()
 }
 
-// AddTask adds tasks to the pool
+// AddTask adds tasks to the pool.
 func (p *Pool) AddTask(task *Task) {
 	p.collector <- task
 }
 
-// RunBackground runs the pool in the background
+// RunBackground runs the pool in the background.
 func (p *Pool) RunBackground() {
 	go func() {
 		for {
@@ -99,7 +98,7 @@ func (p *Pool) RunBackground() {
 	<-p.runBackground
 }
 
-// Stop stops workers running in the background
+// Stop stops workers running in the background.
 func (p *Pool) Stop() {
 	for i := range p.Workers {
 		p.Workers[i].Stop()
