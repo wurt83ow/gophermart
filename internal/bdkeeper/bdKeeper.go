@@ -436,7 +436,11 @@ func (kp *BDKeeper) Withdraw(withdraw models.DataWithdraw) error {
 	}
 
 	// if the commit is unsuccessful, all changes to the transaction will be rolled back
-	defer tx.Rollback()
+	defer func() {
+		if err = tx.Rollback(); err != nil {
+			return
+		}
+	}()
 
 	Args := []interface{}{withdraw.UserID}
 
@@ -576,7 +580,12 @@ func (kp *BDKeeper) Withdraw(withdraw models.DataWithdraw) error {
 	}
 
 	// commit the transaction
-	return tx.Commit()
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("failed to get user withdrawls by userID: %w", err)
+	}
+
+	return nil
 }
 
 func (kp *BDKeeper) UpdateOrderStatus(result []models.ExtRespOrder) error {
@@ -609,7 +618,7 @@ func (kp *BDKeeper) UpdateOrderStatus(result []models.ExtRespOrder) error {
 
 	_, err := kp.conn.ExecContext(ctx, sql, valueArgs...)
 	if err != nil {
-		return fmt.Errorf("failed to update order status: %w", err)
+		return fmt.Errorf("failed to withdraw: %w", err)
 	}
 
 	return nil
@@ -652,7 +661,7 @@ func (kp *BDKeeper) InsertAccruel(orders map[string]models.ExtRespOrder) error {
 
 	_, err := kp.conn.ExecContext(ctx, sql, valueArgs...)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to insert accruel: %w", err)
 	}
 
 	return nil
