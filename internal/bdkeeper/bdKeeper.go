@@ -36,18 +36,21 @@ func NewBDKeeper(dsn func() string, log Log) *BDKeeper {
 	addr := dsn()
 	if addr == "" {
 		log.Info("database dsn is empty")
+
 		return nil
 	}
 
 	conn, err := sql.Open("pgx", dsn())
 	if err != nil {
 		log.Info("Unable to connection to database: ", zap.Error(err))
+
 		return nil
 	}
 
-	driver, err := postgres.WithInstance(conn, &postgres.Config{})
+	driver, err := postgres.WithInstance(conn, new(postgres.Config))
 	if err != nil {
 		log.Info("error getting driver: ", zap.Error(err))
+
 		return nil
 	}
 
@@ -58,6 +61,7 @@ func NewBDKeeper(dsn func() string, log Log) *BDKeeper {
 
 	// fix error test path
 	mp := dir + "/migrations"
+
 	var path string
 	if _, err := os.Stat(mp); err != nil {
 		path = "../../"
@@ -104,6 +108,7 @@ func (kp *BDKeeper) GetUserWithdrawals(userID string) ([]models.DataWithdraw, er
 	ORDER BY
 		processed_at`
 	rows, err := kp.conn.QueryContext(ctx, sql, userID)
+
 	if err != nil {
 		return nil, err
 	}
@@ -111,6 +116,7 @@ func (kp *BDKeeper) GetUserWithdrawals(userID string) ([]models.DataWithdraw, er
 	defer rows.Close()
 
 	result := make([]models.DataWithdraw, 0)
+
 	for rows.Next() {
 		m := models.DataWithdraw{}
 		err := rows.Scan(&m.Order, &m.Sum, &m.Date)

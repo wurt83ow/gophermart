@@ -58,6 +58,7 @@ func (j *JWTAuthz) JWTAuthzMiddleware(log Log) func(next http.Handler) http.Hand
 				userID, err = j.DecodeJWTToUser(jwtCookie.Value)
 				if err != nil {
 					userID = ""
+
 					log.Info("Error occurred creating a cookie", zap.Error(err))
 				}
 			} else {
@@ -72,6 +73,7 @@ func (j *JWTAuthz) JWTAuthzMiddleware(log Log) func(next http.Handler) http.Hand
 
 					if err != nil {
 						userID = ""
+
 						log.Info("Error occurred creating a cookie", zap.Error(err))
 					}
 				}
@@ -98,6 +100,7 @@ func (j *JWTAuthz) CreateJWTTokenForUser(userid string) string {
 	tokenString, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(j.jwtSigningKey)
 	if err != nil {
 		log.Println("Error occurred generating JWT", err)
+
 		return ""
 	}
 
@@ -111,6 +114,7 @@ func (j *JWTAuthz) DecodeJWTToUser(token string) (string, error) {
 			// Check our method hasn't changed since issuance
 			return nil, errors.New("signing method mismatch")
 		}
+
 		return j.jwtSigningKey, nil
 	})
 

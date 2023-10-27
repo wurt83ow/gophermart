@@ -69,6 +69,7 @@ func (a *AccrualService) Start() {
 	ctx, canselFunc := context.WithCancel(ctx)
 	a.cancelFunc = canselFunc
 	a.wg.Add(1)
+
 	go a.UpdateOrders(ctx)
 }
 
@@ -135,6 +136,7 @@ func (a *AccrualService) CreateOrdersTask(orders []string) {
 				fmt.Printf("Task %s processed\n", order)
 				a.AddResults(orderdata)
 			}
+
 			return nil
 		}, taskID)
 		a.pool.AddTask(task)
