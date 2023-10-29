@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
+	"os/signal"
 	"runtime/pprof"
 
 	"github.com/wurt83ow/gophermart/internal/app"
@@ -18,7 +20,19 @@ func main() {
 	pprof.StartCPUProfile(fl)
 	defer pprof.StopCPUProfile()
 
-	if err := app.Run(); err != nil {
-		panic(err)
-	}
+	ctx, cancel := context.WithCancel(context.Background())
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+
+	server := app.NewServer(ctx)
+
+	go func() {
+		oscall := <-c
+		log.Printf("system call:%+v", oscall)
+		server.Shutdown()
+		cancel()
+	}()
+
+	server.Serve()
 }

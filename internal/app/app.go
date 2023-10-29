@@ -1,11 +1,13 @@
 package app
 
 import (
-	"fmt"
+	"context"
+	"log"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/wurt83ow/gophermart/internal/accruel"
 	authz "github.com/wurt83ow/gophermart/internal/authorization"
 	"github.com/wurt83ow/gophermart/internal/bdkeeper"
@@ -18,16 +20,25 @@ import (
 	"go.uber.org/zap"
 )
 
-func Run() error {
+type AppServer struct {
+	ctx context.Context
+	srv *http.Server
+	db  *pgxpool.Pool
+}
+
+func NewServer(ctx context.Context) *AppServer {
+	server := new(AppServer)
+	server.ctx = ctx
+	return server
+}
+
+func (server *AppServer) Serve() {
 	// create and initialize a new option instance
 	option := config.NewOptions()
 	option.ParseFlags()
 
 	// get a new logger
 	nLogger, err := logger.NewLogger(option.LogLevel())
-	if err != nil {
-		return fmt.Errorf("an error occurred when creating a new logger: %w", err)
-	}
 
 	// initialize the keeper instance
 	var keeper storage.Keeper
@@ -74,16 +85,39 @@ func Run() error {
 	flagRunAddr := option.RunAddr()
 	nLogger.Info("Running server", zap.String("address", flagRunAddr))
 
-	server := &http.Server{
+	server.srv = &http.Server{
 		Addr:              flagRunAddr,
 		Handler:           r,
 		ReadHeaderTimeout: 3 * time.Second,
 	}
 
-	err = server.ListenAndServe()
-	if err != nil {
-		return fmt.Errorf("failed to start server : %w", err)
+	err = server.srv.ListenAndServe()
+	if err != nil && err != http.ErrServerClosed {
+		log.Fatalln(err)
 	}
 
-	return nil
+	return
+}
+
+func (server *AppServer) Shutdown() {
+	log.Printf("server stopped")
+
+	ctxShutDown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+
+	server.db.Close()
+
+	defer func() {
+		cancel()
+	}()
+
+	var err error
+	if err = server.srv.Shutdown(ctxShutDown); err != nil {
+		log.Fatalf("server Shutdown Failed:%s", err)
+	}
+
+	log.Printf("server exited properly")
+
+	if err == http.ErrServerClosed {
+		err = nil
+	}
 }
