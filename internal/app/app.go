@@ -39,6 +39,9 @@ func (server *AppServer) Serve() {
 
 	// get a new logger
 	nLogger, err := logger.NewLogger(option.LogLevel())
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	// initialize the keeper instance
 	var keeper storage.Keeper
@@ -104,7 +107,7 @@ func (server *AppServer) Shutdown() {
 
 	ctxShutDown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 
-	server.db.Close()
+	// server.db.Close()
 
 	defer func() {
 		cancel()
