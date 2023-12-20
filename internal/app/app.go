@@ -99,7 +99,6 @@ func (server *AppServer) Serve() {
 		log.Fatalln(err)
 	}
 
-	return
 }
 
 func (server *AppServer) Shutdown() {
