@@ -35,11 +35,13 @@ type Pool struct {
 // NewPool initializes a new pool with the given tasks.
 func NewPool(tasks []*Task, concurrency func() string, log Log, TaskExecutionInterval func() string) *Pool {
 	taskInterval, err := strconv.Atoi(TaskExecutionInterval())
+
 	if err != nil {
-		log.Info("cannot convert concurrency option: ", zap.Error(err))
+		log.Info("cannot convert concurrency option 'TaskExecutionInterval': ", zap.Error(err))
 		taskInterval = 3000
 	}
 
+	fmt.Println("44444444444444444444444444444444444444444444444", concurrency())
 	conc, err := strconv.Atoi(concurrency())
 	if err != nil {
 		log.Info("cannot convert concurrency option: ", zap.Error(err))

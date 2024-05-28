@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/wurt83ow/gophermart/internal/models"
@@ -37,13 +38,15 @@ func (c *ExtController) GetExtOrderAccruel(order string) (models.ExtRespOrder, e
 
 	resp, err := http.Get(url)
 	if err != nil {
-		c.log.Info("cannot convert concurrency option: ", zap.Error(err))
+		c.log.Info("unable to access accruel service, check that it is running: ", zap.Error(err))
+		return models.ExtRespOrder{}, err // Добавлено возвращение ошибки
 	}
 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		c.log.Info("status code error: ", zap.String("method", resp.Status))
+		return models.ExtRespOrder{}, fmt.Errorf("status code error: %s", resp.Status) // Добавлено возвращение ошибки
 	}
 
 	respOrd := models.ExtRespOrder{}

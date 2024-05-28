@@ -2,12 +2,12 @@ package app
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/wurt83ow/gophermart/internal/accruel"
 	authz "github.com/wurt83ow/gophermart/internal/authorization"
 	"github.com/wurt83ow/gophermart/internal/bdkeeper"
@@ -17,22 +17,22 @@ import (
 	"github.com/wurt83ow/gophermart/internal/middleware"
 	"github.com/wurt83ow/gophermart/internal/storage"
 	"github.com/wurt83ow/gophermart/internal/workerpool"
-	"go.uber.org/zap"
 )
 
-type AppServer struct {
-	ctx context.Context
+type Server struct {
 	srv *http.Server
-	db  *pgxpool.Pool
+	ctx context.Context
+	// db  *pgxpool.Pool
 }
 
-func NewServer(ctx context.Context) *AppServer {
-	server := new(AppServer)
+func NewServer(ctx context.Context) *Server {
+	server := new(Server)
 	server.ctx = ctx
+
 	return server
 }
 
-func (server *AppServer) Serve() {
+func (server *Server) Serve() {
 	// create and initialize a new option instance
 	option := config.NewOptions()
 	option.ParseFlags()
@@ -44,26 +44,20 @@ func (server *AppServer) Serve() {
 	}
 
 	// initialize the keeper instance
-	var keeper storage.Keeper
-	if option.DataBaseDSN() != "" {
-		keeper = bdkeeper.NewBDKeeper(option.DataBaseDSN, nLogger)
-		defer keeper.Close()
-	}
+	keeper := initializeKeeper(option.DataBaseDSN, nLogger)
+	defer keeper.Close()
 
 	// initialize the storage instance
-	memoryStorage := storage.NewMemoryStorage(keeper, nLogger)
+	memoryStorage := initializeStorage(keeper, nLogger)
 
 	// create a new workerpool for concurrency task processing
-	var allTask []*workerpool.Task
-	pool := workerpool.NewPool(allTask, option.Concurrency,
-		nLogger, option.TaskExecutionInterval)
+	pool := initializeWorkerPool(option.Concurrency, nLogger, option.TaskExecutionInterval)
 
 	// create a new NewJWTAuthz for user authorization
 	authz := authz.NewJWTAuthz(option.JWTSigningKey(), nLogger)
 
 	// create a new controller to process incoming requests
-	basecontr := controllers.NewBaseController(memoryStorage, option,
-		nLogger, authz)
+	basecontr := initializeBaseController(memoryStorage, option, nLogger, authz)
 
 	// get a middleware for logging requests
 	reqLog := middleware.NewReqLog(nLogger)
@@ -72,54 +66,98 @@ func (server *AppServer) Serve() {
 	go pool.RunBackground()
 
 	// create a new controller for creating outgoing requests
-	extcontr := controllers.NewExtController(memoryStorage,
-		option.AccrualSystemAddress, nLogger)
+	extcontr := controllers.NewExtController(memoryStorage, option.AccrualSystemAddress, nLogger)
 
-	accruelServise := accruel.NewAccrualService(extcontr, pool, memoryStorage,
-		nLogger, option.TaskExecutionInterval)
+	// create and start accrual service
+	accruelServise := initializeAccrualService(extcontr, pool, memoryStorage, nLogger, option.TaskExecutionInterval)
 	accruelServise.Start()
 
+	// create router and mount routes
 	r := chi.NewRouter()
 	r.Use(reqLog.RequestLogger)
-	// r.Use(middleware.GzipMiddleware)
-
 	r.Mount("/", basecontr.Route())
 
-	flagRunAddr := option.RunAddr()
-	nLogger.Info("Running server", zap.String("address", flagRunAddr))
-
-	server.srv = &http.Server{
-		Addr:              flagRunAddr,
-		Handler:           r,
-		ReadHeaderTimeout: 3 * time.Second,
-	}
-
-	err = server.srv.ListenAndServe()
-	if err != nil && err != http.ErrServerClosed {
-		log.Fatalln(err)
-	}
-
+	// configure and start the server
+	startServer(r, option.RunAddr())
 }
 
-func (server *AppServer) Shutdown() {
+func initializeKeeper(dataBaseDSN func() string, logger *logger.Logger) *bdkeeper.BDKeeper {
+	if dataBaseDSN() == "" {
+		return nil
+	}
+
+	return bdkeeper.NewBDKeeper(dataBaseDSN, logger)
+}
+
+func initializeStorage(keeper storage.Keeper, logger *logger.Logger) *storage.MemoryStorage {
+	if keeper == nil {
+		return nil
+	}
+
+	return storage.NewMemoryStorage(keeper, logger)
+}
+
+func initializeWorkerPool(concurrency func() string, logger *logger.Logger, interval func() string) *workerpool.Pool {
+	var allTask []*workerpool.Task
+
+	return workerpool.NewPool(allTask, concurrency, logger, interval)
+}
+
+func initializeBaseController(storage *storage.MemoryStorage, option *config.Options,
+	logger *logger.Logger, authz *authz.JWTAuthz,
+) *controllers.BaseController {
+	return controllers.NewBaseController(storage, option, logger, authz)
+}
+
+func initializeAccrualService(extController *controllers.ExtController, pool *workerpool.Pool,
+	storage *storage.MemoryStorage, logger *logger.Logger, interval func() string,
+) *accruel.AccrualService {
+	return accruel.NewAccrualService(extController, pool, storage, logger, interval)
+}
+
+func startServer(router chi.Router, address string) {
+	const (
+		oneMegabyte = 1 << 20
+		readTimeout = 3 * time.Second
+	)
+
+	server := &http.Server{
+		Addr:                         address,
+		Handler:                      router,
+		ReadHeaderTimeout:            readTimeout,
+		WriteTimeout:                 readTimeout,
+		IdleTimeout:                  readTimeout,
+		ReadTimeout:                  readTimeout,
+		MaxHeaderBytes:               oneMegabyte, // 1 MB
+		DisableGeneralOptionsHandler: false,
+		TLSConfig:                    nil,
+		TLSNextProto:                 nil,
+		ConnState:                    nil,
+		ErrorLog:                     nil,
+		BaseContext:                  nil,
+		ConnContext:                  nil,
+	}
+
+	err := server.ListenAndServe()
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		log.Fatalln(err)
+	}
+}
+
+func (server *Server) Shutdown() {
 	log.Printf("server stopped")
 
-	ctxShutDown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	const shutdownTimeout = 5 * time.Second
+	ctxShutDown, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 
-	// server.db.Close()
+	defer cancel()
 
-	defer func() {
-		cancel()
-	}()
-
-	var err error
-	if err = server.srv.Shutdown(ctxShutDown); err != nil {
-		log.Fatalf("server Shutdown Failed:%s", err)
+	if err := server.srv.Shutdown(ctxShutDown); err != nil {
+		if !errors.Is(err, http.ErrServerClosed) {
+			//nolint:gocritic
+			log.Fatalf("server Shutdown Failed:%s", err)
+		}
 	}
 
-	log.Printf("server exited properly")
-
-	if err == http.ErrServerClosed {
-		err = nil
-	}
+	log.Println("server exited properly")
 }
