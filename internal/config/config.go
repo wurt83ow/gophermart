@@ -6,9 +6,9 @@ import (
 )
 
 type Options struct {
-	flagRunAddr     string
-	flagLogLevel    string
-	flagDataBaseDSN string
+	flagRunAddr, flagLogLevel, flagDataBaseDSN,
+	flagJWTSigningKey, flagAccrualSystemAddress,
+	flagConcurrency, flagTaskExecutionInterval string
 }
 
 func NewOptions() *Options {
@@ -21,11 +21,15 @@ func (o *Options) ParseFlags() {
 	regStringVar(&o.flagRunAddr, "a", ":8080", "address and port to run server")
 	regStringVar(&o.flagLogLevel, "l", "info", "log level")
 	regStringVar(&o.flagDataBaseDSN, "d", "", "")
+	regStringVar(&o.flagJWTSigningKey, "j", "test_key", "jwt signing key")
+	regStringVar(&o.flagAccrualSystemAddress, "r", ":8082", "acrual system address")
+	regStringVar(&o.flagConcurrency, "c", "5", "Concurrency")
+	regStringVar(&o.flagTaskExecutionInterval, "i", "3000", "Task execution interval in milliseconds")
 
 	// parse the arguments passed to the server into registered variables
 	flag.Parse()
 
-	if envRunAddr := os.Getenv("SERVER_ADDRESS"); envRunAddr != "" {
+	if envRunAddr := os.Getenv("RUN_ADDRESS"); envRunAddr != "" {
 		o.flagRunAddr = envRunAddr
 	}
 
@@ -33,9 +37,26 @@ func (o *Options) ParseFlags() {
 		o.flagLogLevel = envLogLevel
 	}
 
-	if envDataBaseDSN := os.Getenv("DATABASE_DSN"); envDataBaseDSN != "" {
+	if envDataBaseDSN := os.Getenv("DATABASE_URI"); envDataBaseDSN != "" {
 		o.flagDataBaseDSN = envDataBaseDSN
 	}
+
+	if envJWTSigningKey := os.Getenv("JWT_SIGNING_KEY"); envJWTSigningKey != "" {
+		o.flagJWTSigningKey = envJWTSigningKey
+	}
+
+	if envAccrualSystemAddress := os.Getenv("ACCRUAL_SYSTEM_ADDRESS"); envAccrualSystemAddress != "" {
+		o.flagAccrualSystemAddress = envAccrualSystemAddress
+	}
+
+	if envConcurrency := os.Getenv("CONCURRENCY"); envConcurrency != "" {
+		o.flagConcurrency = envConcurrency
+	}
+
+	if envTaskExecutionInterval := os.Getenv("TASK_EXECUTION_INTERVAL"); envTaskExecutionInterval != "" {
+		o.flagTaskExecutionInterval = envTaskExecutionInterval
+	}
+
 }
 
 func (o *Options) RunAddr() string {
@@ -48,6 +69,22 @@ func (o *Options) LogLevel() string {
 
 func (o *Options) DataBaseDSN() string {
 	return getStringFlag("d")
+}
+
+func (o *Options) JWTSigningKey() string {
+	return getStringFlag("j")
+}
+
+func (o *Options) AccrualSystemAddress() string {
+	return getStringFlag("r")
+}
+
+func (o *Options) Concurrency() string {
+	return getStringFlag("c")
+}
+
+func (o *Options) TaskExecutionInterval() string {
+	return getStringFlag("i")
 }
 
 func regStringVar(p *string, name string, value string, usage string) {
