@@ -31,7 +31,7 @@ type Storage interface {
 	GetUserWithdrawals(string) ([]models.DataWithdraw, error)
 	GetUserBalance(string) (models.DataBalance, error)
 	GetBaseConnection() bool
-	ExecuteWithdraw(models.DataWithdraw) error
+	Withdraw(models.DataWithdraw) error
 }
 
 type Options interface {
@@ -82,20 +82,21 @@ func (h *BaseController) Route() *chi.Mux {
 		r.Post("/api/user/orders", h.CreateOrder)
 		r.Get("/api/user/orders", h.GetUserOrders)
 		r.Get("/api/user/balance", h.GetUserBalance)
-		r.Post("/api/user/balance/withdraw", h.ExecuteWithdraw)
+		r.Post("/api/user/balance/withdraw", h.Withdraw)
 		r.Get("/api/user/withdrawals", h.GetUserWithdrawals)
-
 	})
 
 	return r
 }
 
 func (h *BaseController) Register(w http.ResponseWriter, r *http.Request) {
-	regReq := models.RequestUser{}
+	regReq := new(models.RequestUser)
 	dec := json.NewDecoder(r.Body)
+
 	if err := dec.Decode(&regReq); err != nil {
 		h.log.Info("cannot decode request JSON body: ", zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest) // code 400
+
 		return
 	}
 
@@ -167,7 +168,6 @@ func (h *BaseController) Login(w http.ResponseWriter, r *http.Request) {
 		err := json.NewEncoder(w).Encode(models.ResponseUser{
 			Response: "success",
 		})
-
 		if err != nil {
 			// internal server error
 			w.WriteHeader(http.StatusInternalServerError) //code 500
@@ -242,8 +242,8 @@ func (h *BaseController) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	// save full url to storage with the key received earlier
 	order, err := h.storage.InsertOrder(orderNum, models.DataOrder{
-		Number: orderNum, Date: curDate, Status: status, UserID: userID})
-
+		Number: orderNum, Date: curDate, Status: status, UserID: userID,
+	})
 	if err != nil {
 		if err == storage.ErrConflict {
 			// The order number has already been uploaded
@@ -311,14 +311,14 @@ func (h *BaseController) GetUserBalance(w http.ResponseWriter, r *http.Request) 
 	userID, ok := r.Context().Value(keyUserID).(string)
 	if !ok || len(userID) == 0 {
 		// user is not authorized
-		w.WriteHeader(http.StatusUnauthorized) //401
+
 		h.log.Info("user is not authenticated, request status 401: ", metod)
 		return
 	}
 
 	balance, err := h.storage.GetUserBalance(userID)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError) //code 500
+		w.WriteHeader(http.StatusUnauthorized) //401
 		h.log.Info("Internal Server Error: ", zap.Error(err))
 		return
 	}
@@ -335,7 +335,7 @@ func (h *BaseController) GetUserBalance(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusOK) //code 200
 }
 
-func (h *BaseController) ExecuteWithdraw(w http.ResponseWriter, r *http.Request) {
+func (h *BaseController) Withdraw(w http.ResponseWriter, r *http.Request) {
 	metod := zap.String("method", r.Method)
 
 	userID, StatusOK := r.Context().Value(keyUserID).(string)
@@ -363,7 +363,7 @@ func (h *BaseController) ExecuteWithdraw(w http.ResponseWriter, r *http.Request)
 	}
 
 	regReq.UserID = userID
-	err = h.storage.ExecuteWithdraw(regReq)
+	err = h.storage.Withdraw(regReq)
 	if err != nil {
 		if err == storage.ErrInsufficient {
 			w.WriteHeader(http.StatusPaymentRequired) //code 402
@@ -418,7 +418,7 @@ func (h *BaseController) GetUserWithdrawals(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusOK) //code 200
 }
 
-// Valid check number is valid or not based on Luhn algorithm
+// Valid check number is valid or not based on Luhn algorithm.
 func (h *BaseController) valid(number int) bool {
 	return (number%10+h.checksum(number/10))%10 == 0
 }

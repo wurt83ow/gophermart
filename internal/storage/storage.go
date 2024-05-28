@@ -12,11 +12,15 @@ import (
 )
 
 // ErrConflict indicates a data conflict in the store.
-var ErrConflict = errors.New("data conflict")
-var ErrInsufficient = errors.New("insufficient funds")
+var (
+	ErrConflict     = errors.New("data conflict")
+	ErrInsufficient = errors.New("insufficient funds")
+)
 
-type StorageOrders = map[string]models.DataOrder
-type StorageUsers = map[string]models.DataUser
+type (
+	StorageOrders = map[string]models.DataOrder
+	StorageUsers  = map[string]models.DataUser
+)
 
 type Log interface {
 	Info(string, ...zapcore.Field)
@@ -41,7 +45,7 @@ type Keeper interface {
 	GetUserWithdrawals(string) ([]models.DataWithdraw, error)
 	UpdateOrderStatus([]models.ExtRespOrder) error
 	InsertAccruel(map[string]models.ExtRespOrder) error
-	ExecuteWithdraw(models.DataWithdraw) error
+	Withdraw(models.DataWithdraw) error
 	Ping() bool
 	Close() bool
 }
@@ -116,8 +120,8 @@ func (s *MemoryStorage) GetOpenOrders() ([]string, error) {
 }
 
 func (s *MemoryStorage) InsertOrder(k string,
-	v models.DataOrder) (models.DataOrder, error) {
-
+	v models.DataOrder,
+) (models.DataOrder, error) {
 	nv, err := s.SaveOrder(k, v)
 	if err != nil {
 		return nv, err
@@ -132,8 +136,8 @@ func (s *MemoryStorage) InsertOrder(k string,
 }
 
 func (s *MemoryStorage) InsertUser(k string,
-	v models.DataUser) (models.DataUser, error) {
-
+	v models.DataUser,
+) (models.DataUser, error) {
 	nv, err := s.SaveUser(k, v)
 	if err != nil {
 		return nv, err
@@ -180,8 +184,8 @@ func (s *MemoryStorage) GetUserBalance(userID string) (models.DataBalance, error
 	return s.keeper.GetUserBalance(userID)
 }
 
-func (s *MemoryStorage) ExecuteWithdraw(withdraw models.DataWithdraw) error {
-	return s.keeper.ExecuteWithdraw(withdraw)
+func (s *MemoryStorage) Withdraw(withdraw models.DataWithdraw) error {
+	return s.keeper.Withdraw(withdraw)
 }
 
 func (s *MemoryStorage) SaveOrder(k string, v models.DataOrder) (models.DataOrder, error) {

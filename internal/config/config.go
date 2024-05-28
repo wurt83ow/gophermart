@@ -12,19 +12,19 @@ type Options struct {
 }
 
 func NewOptions() *Options {
-	return &Options{}
+	return new(Options)
 }
 
 // parseFlags handles command line arguments
-// and stores their values in the corresponding variables
+// and stores their values in the corresponding variables.
 func (o *Options) ParseFlags() {
 	regStringVar(&o.flagRunAddr, "a", ":8080", "address and port to run server")
-	regStringVar(&o.flagLogLevel, "l", "info", "log level")
-	regStringVar(&o.flagDataBaseDSN, "d", "", "")
-	regStringVar(&o.flagJWTSigningKey, "j", "test_key", "jwt signing key")
-	regStringVar(&o.flagAccrualSystemAddress, "r", ":8082", "acrual system address")
 	regStringVar(&o.flagConcurrency, "c", "5", "Concurrency")
+	regStringVar(&o.flagDataBaseDSN, "d", "", "")
 	regStringVar(&o.flagTaskExecutionInterval, "i", "3000", "Task execution interval in milliseconds")
+	regStringVar(&o.flagJWTSigningKey, "j", "test_key", "jwt signing key")
+	regStringVar(&o.flagLogLevel, "l", "info", "log level")
+	regStringVar(&o.flagAccrualSystemAddress, "r", ":8082", "acrual system address")
 
 	// parse the arguments passed to the server into registered variables
 	flag.Parse()
@@ -56,7 +56,6 @@ func (o *Options) ParseFlags() {
 	if envTaskExecutionInterval := os.Getenv("TASK_EXECUTION_INTERVAL"); envTaskExecutionInterval != "" {
 		o.flagTaskExecutionInterval = envTaskExecutionInterval
 	}
-
 }
 
 func (o *Options) RunAddr() string {
@@ -97,7 +96,7 @@ func getStringFlag(name string) string {
 	return flag.Lookup(name).Value.(flag.Getter).Get().(string)
 }
 
-// GetAsString reads an environment or returns a default value
+// GetAsString reads an environment or returns a default value.
 func GetAsString(key string, defaultValue string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value
