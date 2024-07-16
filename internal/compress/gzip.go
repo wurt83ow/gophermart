@@ -8,7 +8,7 @@ import (
 
 // compressWriter implements the http.ResponseWriter interface
 // and allows it to be transparent to the server compress
-// transmitted data and set correct HTTP headers
+// transmitted data and set correct HTTP headers.
 type compressWriter struct {
 	w  http.ResponseWriter
 	zw *gzip.Writer
@@ -36,13 +36,13 @@ func (c *compressWriter) WriteHeader(statusCode int) {
 	c.w.WriteHeader(statusCode)
 }
 
-// Close закрывает gzip.Writer и досылает все данные из буфера.
+// Closes gzip.Writer and sends all data from the buffer.
 func (c *compressWriter) Close() error {
 	return c.zw.Close()
 }
 
 // compressReader implements the io.ReadCloser interface and allows
-// to transparently decompress the data received from the client for the server
+// to transparently decompress the data received from the client for the server.
 type compressReader struct {
 	r  io.ReadCloser
 	zr *gzip.Reader
