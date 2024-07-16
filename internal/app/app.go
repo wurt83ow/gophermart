@@ -41,6 +41,16 @@ func (server *Server) Serve() {
 	nLogger, err := logger.NewLogger(option.LogLevel())
 	if err != nil {
 		log.Fatalln(err)
+<<<<<<< HEAD
+=======
+	}
+
+	// initialize the keeper instance
+	var keeper storage.Keeper
+	if option.DataBaseDSN() != "" {
+		keeper = bdkeeper.NewBDKeeper(option.DataBaseDSN, nLogger)
+		defer keeper.Close()
+>>>>>>> ef554a6343e21ec465ecff19742d925a0f910ef9
 	}
 
 	// initialize the keeper instance
@@ -142,6 +152,10 @@ func startServer(router chi.Router, address string) {
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatalln(err)
 	}
+<<<<<<< HEAD
+=======
+
+>>>>>>> ef554a6343e21ec465ecff19742d925a0f910ef9
 }
 
 func (server *Server) Shutdown() {
@@ -150,7 +164,11 @@ func (server *Server) Shutdown() {
 	const shutdownTimeout = 5 * time.Second
 	ctxShutDown, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 
+<<<<<<< HEAD
 	defer cancel()
+=======
+	// server.db.Close()
+>>>>>>> ef554a6343e21ec465ecff19742d925a0f910ef9
 
 	if err := server.srv.Shutdown(ctxShutDown); err != nil {
 		if !errors.Is(err, http.ErrServerClosed) {
